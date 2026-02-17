@@ -69,7 +69,7 @@ class CertificatesController extends BaseController
 
         $dompdf = new Dompdf();
         $dompdf->loadHtml($html);
-        $dompdf->setPaper('A4','portrait');
+        $dompdf->setPaper('A4','landscape');
         $dompdf->render();
 
         $dir = WRITEPATH.'certificates/'.$year;
