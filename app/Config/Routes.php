@@ -4,6 +4,7 @@ namespace Config;
 
 use CodeIgniter\Config\Services;
 use CodeIgniter\Router\RouteCollection;
+use App\Controllers\AuthController;
 
 /**
  * @var RouteCollection $routes
@@ -29,22 +30,6 @@ $routes->setAutoRoute(false);
  * Route Definitions
  * --------------------------------------------------------------------
  */
-$routes->get('/', 'Home::index');
-
-$routes->get('dbpage', 'Home::dbtest');
-$routes->get('dbtest', function () {
-    try {
-        $db = \Config\Database::connect();
-        $row = $db->query("SELECT DATABASE() AS db, USER() AS u")->getRowArray();
-        return "DB OK. db=" . ($row['db'] ?? '-') . " user=" . ($row['u'] ?? '-');
-    } catch (\Throwable $e) {
-        return "DB FAIL: " . $e->getMessage();
-    }
-});
-
-
-
-use App\Controllers\AuthController;
 
 $routes->get('login', [AuthController::class, 'loginForm']);
 $routes->post('login', [AuthController::class, 'login']);
@@ -53,7 +38,20 @@ $routes->get('logout', [AuthController::class, 'logout']);
 $routes->get('admin', fn() => view('dash/admin'), ['filter' => 'role:admin']);
 $routes->get('editor', fn() => view('dash/editor'), ['filter' => 'role:editor']);
 $routes->get('reviewer', fn() => view('dash/reviewer'), ['filter' => 'role:reviewer']);
-$routes->get('author', fn() => view('dash/author'), ['filter' => 'role:author,admin,editor,reviewer']);
+$routes->get('author', 'Author\\DashboardController::index', ['filter' => 'role:author,admin,editor,reviewer']);
+
+// Author submission flow
+$routes->group('author', ['filter' => 'role:author,admin,editor,reviewer'], static function ($routes) {
+    $routes->get('/', 'Author\\DashboardController::index');
+
+    $routes->get('submissions', 'Author\\SubmissionsController::index');
+    $routes->get('submissions/new', 'Author\\SubmissionsController::new');
+    $routes->post('submissions', 'Author\\SubmissionsController::create');
+    $routes->get('submissions/(:num)', 'Author\\SubmissionsController::show/$1');
+    $routes->post('submissions/(:num)/upload', 'Author\\SubmissionsController::upload/$1');
+    $routes->get('submissions/(:num)/download/(:num)', 'Author\\SubmissionsController::download/$1/$2');
+});
+
 
 $routes->get('/', 'SiteController::home');
 
@@ -119,5 +117,3 @@ if (is_file(SYSTEMPATH . 'Config/Routes.php')) {
 if (is_file(APPPATH . 'Config/' . ENVIRONMENT . '/Routes.php')) {
     require APPPATH . 'Config/' . ENVIRONMENT . '/Routes.php';
 }
-
-
