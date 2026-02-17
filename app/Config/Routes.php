@@ -35,10 +35,11 @@ $routes->get('login', [AuthController::class, 'loginForm']);
 $routes->post('login', [AuthController::class, 'login']);
 $routes->get('logout', [AuthController::class, 'logout']);
 
-$routes->get('admin', fn() => view('dash/admin'), ['filter' => 'role:admin']);
-$routes->get('editor', fn() => view('dash/editor'), ['filter' => 'role:editor']);
-$routes->get('reviewer', fn() => view('dash/reviewer'), ['filter' => 'role:reviewer']);
+$routes->get('dashboard', 'WorkspaceController::index', ['filter' => 'role:author,admin,editor,reviewer']);
 $routes->get('author', 'Author\\DashboardController::index', ['filter' => 'role:author,admin,editor,reviewer']);
+
+$routes->get('editor', 'Editor\\DashboardController::index', ['filter' => 'role:editor,admin']);
+$routes->get('reviewer', 'Reviewer\\DashboardController::index', ['filter' => 'role:reviewer,admin']);
 
 // Author submission flow
 $routes->group('author', ['filter' => 'role:author,admin,editor,reviewer'], static function ($routes) {
@@ -50,7 +51,11 @@ $routes->group('author', ['filter' => 'role:author,admin,editor,reviewer'], stat
     $routes->get('submissions/(:num)', 'Author\\SubmissionsController::show/$1');
     $routes->post('submissions/(:num)/upload', 'Author\\SubmissionsController::upload/$1');
     $routes->get('submissions/(:num)/download/(:num)', 'Author\\SubmissionsController::download/$1/$2');
+    $routes->get('certificates', 'Author\\CertificatesController::index');
+    $routes->get('certificates/(:segment)/download', 'Author\\CertificatesController::download/$1');
+    
 });
+ $routes->get('verify/certificate/(:segment)', 'SiteController::verifyCertificate/$1');
 
 
 $routes->get('/', 'SiteController::home');
@@ -89,6 +94,14 @@ $routes->group('admin', ['filter' => 'role:admin'], static function ($routes) {
     $routes->post('conferences/(:num)', 'Admin\ConferencesController::update/$1');
     $routes->post('conferences/(:num)/delete', 'Admin\ConferencesController::delete/$1');
 });
+
+// Submissions + Publishing
+$routes->get('submissions', 'Admin\\SubmissionsController::index');
+$routes->get('submissions/(:num)', 'Admin\\SubmissionsController::show/$1');
+$routes->post('submissions/(:num)/publish', 'Admin\\SubmissionsController::publish/$1');
+
+$routes->get('preview/certificate', 'PreviewController::certificate');
+$routes->get('preview/certificate.pdf', 'PreviewController::certificatePdf');
 
 
 

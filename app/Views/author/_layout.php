@@ -35,6 +35,7 @@
   <a href="/author">Dashboard</a>
   <a href="/author/submissions">My Submissions</a>
   <a href="/">Public site</a>
+  <a href="/author/certificates">My Certificates</a>
   <a href="/logout">Logout</a>
 </header>
 

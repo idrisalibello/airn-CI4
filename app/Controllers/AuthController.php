@@ -46,7 +46,7 @@ class AuthController extends BaseController
         if (in_array('admin', $roles, true)) return redirect()->to('/admin');
         if (in_array('editor', $roles, true)) return redirect()->to('/editor');
         if (in_array('reviewer', $roles, true)) return redirect()->to('/reviewer');
-        return redirect()->to('/author');
+        return redirect()->to('/dashboard');
     }
 
     public function logout()

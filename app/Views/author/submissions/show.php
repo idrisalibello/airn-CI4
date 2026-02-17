@@ -48,7 +48,7 @@
         <tr><th>Track</th><td><?= esc($sub['track']) ?></td></tr>
       <?php endif; ?>
       <?php if (array_key_exists('abstract', $sub) && !empty($sub['abstract'])): ?>
-        <tr><th>Abstract</th><td><?= nl2br(esc($sub['abstract'])) ?></td></tr>
+        <tr><th>Abstract</th><td><?php echo 'nl2br(esc($sub[abstract]))'; ?></td></tr>
       <?php endif; ?>
       <?php if (array_key_exists('keywords', $sub) && !empty($sub['keywords'])): ?>
         <tr><th>Keywords</th><td><?= esc($sub['keywords']) ?></td></tr>

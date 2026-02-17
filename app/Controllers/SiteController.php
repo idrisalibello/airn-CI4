@@ -138,7 +138,38 @@ class SiteController extends BaseController
         return $this->response->download($path, null);
     }
 
-    public function about()    { return view('site/static', ['title' => 'About', 'heading' => 'About AIRN']); }
-    public function contact()  { return view('site/static', ['title' => 'Contact', 'heading' => 'Contact']); }
-    public function policies() { return view('site/static', ['title' => 'Policies', 'heading' => 'Policies']); }
+    public function about()
+    {
+        return view('site/static', ['title' => 'About', 'heading' => 'About AIRN']);
+    }
+    public function contact()
+    {
+        return view('site/static', ['title' => 'Contact', 'heading' => 'Contact']);
+    }
+    public function policies()
+    {
+        return view('site/static', ['title' => 'Policies', 'heading' => 'Policies']);
+    }
+    public function verifyCertificate(string $code)
+    {
+        $db = \Config\Database::connect();
+
+        $cert = $db->table('certificate_issuances')->where('code', $code)->get()->getRowArray();
+        if (!$cert) {
+            return view('site/certificate_verify', ['title' => 'Certificate Verification', 'valid' => false]);
+        }
+
+        $user = $db->table('users')->where('id', (int)$cert['user_id'])->get()->getRowArray();
+        $sub  = $db->table('submissions')->where('id', (int)$cert['submission_id'])->get()->getRowArray();
+        $pub  = $db->table('publications')->where('id', (int)$cert['publication_id'])->get()->getRowArray();
+
+        return view('site/certificate_verify', [
+            'title' => 'Certificate Verification',
+            'valid' => true,
+            'cert' => $cert,
+            'user' => $user,
+            'submission' => $sub,
+            'publication' => $pub,
+        ]);
+    }
 }

@@ -28,6 +28,7 @@
   <a href="/admin">Dashboard</a>
   <a href="/admin/journals">Journals</a>
   <a href="/admin/conferences">Conferences</a>
+  <a class="btn" href="/admin/submissions">Submissions</a>
   <a href="/">Public site</a>
   <a href="/logout">Logout</a>
 </header>
