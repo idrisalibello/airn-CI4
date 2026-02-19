@@ -1,363 +1,267 @@
+<?php
+// app/Views/certificates/publication.php
+?>
 <!doctype html>
 <html>
-
 <head>
-    <meta charset="utf-8">
-    <style>
-        @page {
-            margin: 28px 32px;
-        }
+  <meta charset="utf-8">
+  <style>
+    /* A4 Landscape Sizing: 297mm x 210mm */
+    @page { 
+      size: A4 landscape; 
+      margin: 0; /* Margin handled by body padding for better engine compatibility */
+    }
 
-        body {
-            font-family: Arial, sans-serif;
-            color: #111;
-            font-size: 13px;
-            line-height: 1.5;
-        }
+    html, body { 
+      margin: 0; 
+      padding: 0; 
+      width: 297mm; 
+      height: 210mm;
+      overflow: hidden;
+    }
 
-        /* Outer certificate frame (standard certificate look) */
-        .frame {
-            border: 2px solid #0B3D91;
-            padding: 18px;
-            position: relative;
-            min-height: 1000px;
-            /* gives breathing room on A4 */
-        }
+    body { 
+      font-family: DejaVu Sans, Arial, sans-serif; 
+      font-size: 12px; 
+      color: #111; 
+      line-height: 1.2; 
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
 
-        /* Inner thin line */
-        .inner {
-            border: 1px solid #d7e0f2;
-            padding: 18px 18px 14px;
-            min-height: 960px;
-            position: relative;
-        }
+    * { box-sizing: border-box; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 
-        /* Header: emblem + institution */
-        .header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-        }
+    /* The outer container constrained to A4 minus safe margins (approx 3mm each side) */
+    .frame { 
+      width: 291mm; 
+      height: 204mm; 
+      border: 2px solid #0B3D91; 
+      padding: 2mm; 
+      background: #fff; 
+      position: relative;
+    }
 
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
+    .inner { 
+      border: 1px solid #d7e0f2; 
+      padding: 5mm; 
+      height: 100%;
+      position: relative; 
+      display: flex;
+      flex-direction: column;
+    }
 
-        .logoBox {
-            width: 52px;
-            height: 52px;
-            border: 2px solid #0B3D91;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 800;
-            color: #0B3D91;
-            font-size: 16px;
-        }
+    /* Banner */
+    .banner { height: 5mm; background: #0B3D91; border-radius: 3mm; margin-bottom: 4mm; }
 
-        .org {
-            line-height: 1.2;
-        }
+    /* Watermark */
+    .wm {
+      position: absolute; left: 0; right: 0;
+      top: 45%;
+      transform: translateY(-50%);
+      text-align: center;
+      font-size: 110px;
+      font-weight: 900;
+      color: #0B3D91;
+      opacity: 0.045;
+      letter-spacing: 15px;
+      z-index: 0;
+    }
+    .content { position: relative; z-index: 1; flex-grow: 1; }
 
-        .org .name {
-            font-size: 16px;
-            font-weight: 800;
-            color: #0B3D91;
-            letter-spacing: .2px;
-        }
+    /* Header */
+    .hdr td { vertical-align: top; }
+    .org { font-weight: 900; font-size: 18px; color: #0B3D91; line-height: 1.1; }
+    .tagline { font-size: 11px; color: #333; margin-top: 1mm; }
+    .meta { text-align: right; font-size: 10.5px; color: #333; line-height: 1.25; }
 
-        .org .sub {
-            font-size: 12px;
-            color: #333;
-        }
+    .mono {
+      font-family: DejaVu Sans Mono, monospace;
+      font-size: 9px;
+      white-space: normal;
+      word-break: break-all;
+    }
 
-        .metaRight {
-            text-align: right;
-            font-size: 11px;
-            color: #333;
-        }
+    /* Titles */
+    .center { text-align: center; }
+    .t1 { margin-top: 5mm; font-size: 32px; font-weight: 900; letter-spacing: 2px; }
+    .t2 { margin-top: 2mm; font-size: 14px; color: #444; }
 
-        .mono {
-            font-family: "Courier New", monospace;
-        }
+    /* Recipient */
+    .awarded { margin-top: 8mm; font-size: 14px; color: #333; }
+    .name { margin-top: 3mm; font-size: 32px; font-weight: 900; letter-spacing: .5px; border-bottom: 1px double #d7e0f2; display: inline-block; padding-bottom: 2mm; }
 
-        /* Big certificate title */
-        .certTitle {
-            margin-top: 26px;
-            text-align: center;
-            font-size: 34px;
-            font-weight: 900;
-            letter-spacing: .6px;
-        }
+    /* Article box */
+    .paperBox {
+      margin: 8mm auto 0;
+      width: 90%;
+      border: 1px solid #d7e0f2;
+      background: #f5f7fc;
+      padding: 6mm;
+      text-align: center;
+    }
+    .paperBox .lbl {
+      font-size: 11px; font-weight: 900; color: #333;
+      letter-spacing: 1px; text-transform: uppercase;
+      margin-bottom: 3mm;
+    }
+    .paperBox .paper {
+      font-size: 18px; font-weight: 900; line-height: 1.3; margin: 0;
+      word-break: break-word;
+    }
 
-        .certSubtitle {
-            text-align: center;
-            margin-top: 6px;
-            font-size: 13px;
-            color: #333;
-        }
+    /* Details + Seal row */
+    .row2 { width: 90%; margin: 8mm auto 0; }
+    .row2 td { vertical-align: middle; }
 
-        /* Recipient */
-        .presented {
-            margin-top: 26px;
-            text-align: center;
-            font-size: 13px;
-            color: #333;
-        }
+    .details { font-size: 12px; }
+    .details div { margin-bottom: 2mm; }
+    .details strong {
+      display: inline-block;
+      width: 32mm;
+      font-weight: 900;
+      color: #222;
+    }
 
-        .recipient {
-            margin-top: 10px;
-            text-align: center;
-            font-size: 28px;
-            font-weight: 900;
-            letter-spacing: .3px;
-        }
+    /* SEAL */
+    .sealWrap { text-align: right; }
+    .seal {
+      display: inline-block;
+      width: 120px;
+      height: 120px;
+      border-radius: 999px;
+      border: 4px solid rgba(11,61,145,0.9);
+      background: rgba(11,61,145,0.05);
+      text-align: center;
+      color: #0B3D91;
+      font-weight: 900;
+      padding-top: 18px;
+    }
+    .sealTop { font-size: 10px; letter-spacing: 1px; }
+    .sealMid { margin-top: 5px; font-size: 16px; letter-spacing: .5px; }
+    .sealStars { margin-top: 4px; font-size: 12px; letter-spacing: 3px; }
+    .sealBrand { margin-top: 4px; font-size: 11px; letter-spacing: 1px; }
+    .sealCode { margin-top: 5px; font-size: 9px; line-height: 1.1; padding: 0 8px; }
 
-        /* Statement block */
-        .statement {
-            margin: 18px auto 0;
-            max-width: 620px;
-            text-align: center;
-            font-size: 14px;
-            color: #111;
-        }
+    /* Signatures */
+    .sign { width: 90%; margin: 10mm auto 0; }
+    .sig td { vertical-align: top; }
 
-        /* Paper title emphasis */
-        .paperBox {
-            margin: 18px auto 0;
-            max-width: 720px;
-            border: 1px solid #d7e0f2;
-            background: #f3f6fb;
-            padding: 12px 14px;
-            text-align: center;
-        }
+    .sigLineLeft { border-top: 1px solid #666; padding-top: 2mm; width: 85%; }
+    .sigLineRightWrap { text-align: right; }
+    .sigLineRight { border-top: 1px solid #666; padding-top: 2mm; width: 85%; display: inline-block; text-align: right; }
 
-        .paperBox .label {
-            font-size: 11px;
-            color: #333;
-            text-transform: uppercase;
-            letter-spacing: .8px;
-            font-weight: 700;
-        }
+    .role { font-weight: 900; font-size: 12px; color: #222; }
+    .who { font-weight: 900; font-size: 13px; margin-top: 1mm; }
+    .org2 { font-size: 11px; color: #333; margin-top: .6mm; }
 
-        .paperBox .title {
-            margin-top: 6px;
-            font-size: 16px;
-            font-weight: 800;
-        }
-
-        /* Details table */
-        .details {
-            margin: 18px auto 0;
-            max-width: 720px;
-            font-size: 12px;
-            border-collapse: collapse;
-            width: 100%;
-        }
-
-        .details td {
-            padding: 6px 0;
-            vertical-align: top;
-        }
-
-        .details .k {
-            width: 170px;
-            color: #222;
-            font-weight: 800;
-        }
-
-        /* Seal + watermark */
-        .watermark {
-            position: absolute;
-            left: 0;
-            right: 0;
-            top: 44%;
-            text-align: center;
-            font-size: 86px;
-            font-weight: 900;
-            color: rgba(11, 61, 145, 0.06);
-            transform: rotate(-12deg);
-            z-index: 0;
-            pointer-events: none;
-        }
-
-        .seal {
-            position: absolute;
-            right: 28px;
-            bottom: 205px;
-            width: 100px;
-            height: 100px;
-            border-radius: 999px;
-            border: 3px solid rgba(11, 61, 145, 0.55);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            color: #0B3D91;
-            font-weight: 900;
-            font-size: 12px;
-            background: rgba(11, 61, 145, 0.03);
-        }
-
-        .seal span {
-            display: block;
-            font-weight: 700;
-            font-size: 10px;
-            color: #0B3D91;
-            margin-top: 4px;
-        }
-
-        /* Signatures */
-        .signRow {
-            margin-top: 52px;
-            display: flex;
-            justify-content: space-between;
-            gap: 18px;
-            position: relative;
-            z-index: 1;
-        }
-
-        .sig {
-            width: 48%;
-            border-top: 1px solid #666;
-            padding-top: 8px;
-            font-size: 12px;
-            color: #222;
-        }
-
-        .sig .role {
-            font-weight: 800;
-        }
-
-        .sig.right {
-            text-align: right;
-        }
-
-        /* Footer verify line */
-        .footer {
-            position: absolute;
-            left: 18px;
-            right: 18px;
-            bottom: 14px;
-            font-size: 11px;
-            color: #333;
-            border-top: 1px solid #d7e0f2;
-            padding-top: 10px;
-            display: flex;
-            justify-content: space-between;
-            gap: 10px;
-            z-index: 1;
-        }
-
-        .footer .left {
-            max-width: 70%;
-        }
-
-        .footer .right {
-            text-align: right;
-            white-space: nowrap;
-        }
-    </style>
+    /* Footer tight at bottom */
+    .footer {
+      width: 100%;
+      margin-top: auto;
+      border-top: 1px solid #d7e0f2;
+      padding-top: 2mm;
+      font-size: 10.5px;
+      color: #333;
+    }
+    .footer .r { text-align: right; }
+  </style>
 </head>
-
 <body>
-    <div class="frame">
-        <div class="inner">
-            <div class="watermark">AIRN</div>
+  <div class="frame">
+    <div class="inner">
+      <div class="banner"></div>
+      <div class="wm">AIRN</div>
 
-            <div class="header">
-                <div class="brand">
-                    <div class="logoBox">AIRN</div>
-                    <div class="org">
-                        <div class="name"><?= esc($brand_left ?? 'AIRN Journal of Computing Systems') ?></div>
-                        <div class="sub">Academic & International Research Network</div>
-                    </div>
-                </div>
+      <div class="content">
+        <table class="hdr">
+          <tr>
+            <td>
+              <div class="org"><?= esc($brand_left ?? 'AIRN') ?></div>
+              <div class="tagline">Academic &amp; International Research Network</div>
+            </td>
+            <td class="meta">
+              <div><?= esc($brand_right ?? '') ?></div>
+              <div>Certificate ID: <span class="mono"><?= esc($code ?? '-') ?></span></div>
+            </td>
+          </tr>
+        </table>
 
-                <div class="metaRight">
-                    <div><?= esc($brand_right ?? '') ?></div>
-                    <div>Certificate ID: <span class="mono"><?= esc($code ?? '-') ?></span></div>
-                </div>
-            </div>
-
-            <div class="certTitle">CERTIFICATE</div>
-            <div class="certSubtitle">of Publication</div>
-
-            <div class="presented">This certificate is hereby awarded to</div>
-            <div class="recipient"><?= esc($recipient_name ?? 'Author') ?></div>
-
-            <div class="statement">
-                In recognition of the successful publication of a scholarly article under AIRN.
-            </div>
-
-            <div class="paperBox">
-                <div class="label">Published Article Title</div>
-                <div class="title"><?= esc($paper_title ?? '-') ?></div>
-            </div>
-
-            <table class="details">
-                <tr>
-                    <td class="k">Publication Date</td>
-                    <td><?= esc(!empty($published_at) ? date('d M Y', strtotime($published_at)) : '-') ?></td>
-                </tr>
-                <tr>
-                    <td class="k">DOI</td>
-                    <td><?= esc($doi ?: '-') ?></td>
-                </tr>
-                <tr>
-                    <td class="k">Volume / Issue / Pages</td>
-                    <td><?= esc(($volume ?: '-') . ' / ' . ($issue ?: '-') . ' / ' . ($pages ?: '-')) ?></td>
-                </tr>
-                <tr>
-                    <td class="k">Verification Link</td>
-                    <td><?= esc($verify_url ?? '-') ?></td>
-                </tr>
-            </table>
-            
-            <div class="seal">
-                VERIFIED
-                <span>AIRN</span>
-            </div>
-
-            <div class="signRow">
-                <div class="sig">
-                    <div style="height:34px;"></div> <!-- reserved space for handwritten signature later -->
-                    <div class="role">Editor-in-Chief</div>
-                    <div style="font-weight:800; font-size:13px; color:#111;">
-                        <?= esc($editor_name ?? 'Dr. Sam Ebute') ?>
-                    </div>
-                    <div style="font-size:11px; color:#333;">
-                        AIRN Journal of Computing Systems
-                    </div>
-                </div>
-
-                <div class="sig right">
-                    <div style="height:34px;"></div> <!-- reserved space for handwritten signature later -->
-                    <div class="role">Managing Editor</div>
-                    <div style="font-weight:800; font-size:13px; color:#111;">
-                        <?= esc($managing_editor_name ?? 'Prof. Philip Alex') ?>
-                    </div>
-                    <div style="font-size:11px; color:#333;">
-                        Academic & International Research Network
-                    </div>
-                </div>
-            </div>
-
-
-            <div class="footer">
-                <div class="left">
-                    Verify this certificate using the link above or by the Certificate ID.
-                </div>
-                <div class="right mono">
-                    <?= esc($code ?? '-') ?>
-                </div>
-            </div>
+        <div class="center">
+          <div class="t1">CERTIFICATE OF PUBLICATION</div>
+          <div class="t2">Issued in recognition of an official scholarly publication</div>
         </div>
-    </div>
-</body>
 
+        <div class="center awarded">This certificate is hereby awarded to</div>
+        <div class="center"><span class="name"><?= esc($recipient_name ?? 'Author') ?></span></div>
+
+        <div class="paperBox">
+          <div class="lbl">Published Article Title</div>
+          <p class="paper">“<?= esc($paper_title ?? '-') ?>”</p>
+        </div>
+
+        <?php
+          $pubDate = !empty($published_at) ? date('d M Y', strtotime($published_at)) : '-';
+          $token = $verify_short ?? ($verify_url ?? '-');
+        ?>
+
+        <table class="row2">
+          <tr>
+            <td style="width:70%;">
+              <div class="details">
+                <div><strong>Pub Date</strong> <?= esc($pubDate) ?></div>
+                <div><strong>Vol/Iss/Pg</strong> <?= esc(($volume ?: '-') . ' / ' . ($issue ?: '-') . ' / ' . ($pages ?: '-')) ?></div>
+                <div><strong>DOI</strong> <span class="mono"><?= esc($doi ?: '-') ?></span></div>
+                <div><strong>Verify</strong> <span class="mono"><?= esc($token) ?></span></div>
+              </div>
+            </td>
+
+            <td style="width:30%;" class="sealWrap">
+              <div class="seal">
+                <div class="sealTop">OFFICIAL SEAL</div>
+                <div class="sealMid">VERIFIED</div>
+                <div class="sealStars">★ ★ ★</div>
+                <div class="sealBrand">AIRN</div>
+                <div class="sealCode"><?= esc($code ?? '-') ?></div>
+              </div>
+            </td>
+          </tr>
+        </table>
+
+        <div class="sign">
+          <table class="sig">
+            <tr>
+              <td style="width:50%;">
+                <div class="sigLineLeft">
+                  <div class="role">Editor-in-Chief</div>
+                  <div class="who"><?= esc($editor_name ?? 'Dr. Sam Ebute') ?></div>
+                  <div class="org2"><?= esc($brand_left ?? 'AIRN') ?></div>
+                </div>
+              </td>
+
+              <td style="width:50%;" class="sigLineRightWrap">
+                <div class="sigLineRight">
+                  <div class="role">Managing Editor</div>
+                  <div class="who"><?= esc($managing_editor_name ?? 'Prof. Philip Alex') ?></div>
+                  <div class="org2">Academic &amp; International Research Network</div>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="footer">
+        <table>
+          <tr>
+            <td>Verify using the token or Certificate ID on the AIRN verification page.</td>
+            <td class="r mono"><?= esc($code ?? '-') ?></td>
+          </tr>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</body>
 </html>

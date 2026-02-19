@@ -51,11 +51,11 @@ $routes->group('author', ['filter' => 'role:author,admin,editor,reviewer'], stat
     $routes->get('submissions/(:num)', 'Author\\SubmissionsController::show/$1');
     $routes->post('submissions/(:num)/upload', 'Author\\SubmissionsController::upload/$1');
     $routes->get('submissions/(:num)/download/(:num)', 'Author\\SubmissionsController::download/$1/$2');
+    $routes->get('submissions/(:num)/view/(:num)', 'Author\\SubmissionsController::view/$1/$2');
     $routes->get('certificates', 'Author\\CertificatesController::index');
     $routes->get('certificates/(:segment)/download', 'Author\\CertificatesController::download/$1');
-    
 });
- $routes->get('verify/certificate/(:segment)', 'SiteController::verifyCertificate/$1');
+$routes->get('verify/certificate/(:segment)', 'SiteController::verifyCertificate/$1');
 
 
 $routes->get('/', 'SiteController::home');
@@ -93,12 +93,32 @@ $routes->group('admin', ['filter' => 'role:admin'], static function ($routes) {
     $routes->get('conferences/(:num)/edit', 'Admin\ConferencesController::edit/$1');
     $routes->post('conferences/(:num)', 'Admin\ConferencesController::update/$1');
     $routes->post('conferences/(:num)/delete', 'Admin\ConferencesController::delete/$1');
+
+    // Submissions + Publishing (admin-only)
+    // $routes->get('submissions', 'Admin\SubmissionsController::index');
+    // $routes->get('submissions/(:num)', 'Admin\SubmissionsController::show/$1');
+    // $routes->post('submissions/(:num)/publish', 'Admin\SubmissionsController::publish/$1');
+    // $routes->get('submissions/(:num)/download/(:num)', 'Admin\SubmissionsController::download/$1/$2');
+    // $routes->get('submissions/(:num)/view/(:num)', 'Admin\SubmissionsController::view/$1/$2');
+    // Submissions
+    $routes->get('submissions', 'Admin\SubmissionsController::index');
+    $routes->get('submissions/(:num)', 'Admin\SubmissionsController::show/$1');
+
+    // Decisions
+    $routes->post('submissions/(:num)/decide', 'Admin\SubmissionsController::decide/$1');
+
+    // Publishing
+    $routes->post('submissions/(:num)/publish', 'Admin\SubmissionsController::publish/$1');
+
+    // File actions
+    $routes->get('submissions/(:num)/download/(:num)', 'Admin\SubmissionsController::download/$1/$2');
+    $routes->get('submissions/(:num)/view/(:num)', 'Admin\SubmissionsController::view/$1/$2');
+
+    // Certificate download (admin)
+    $routes->get('submissions/(:num)/certificate', 'Admin\SubmissionsController::certificate/$1');
 });
 
-// Submissions + Publishing
-$routes->get('submissions', 'Admin\\SubmissionsController::index');
-$routes->get('submissions/(:num)', 'Admin\\SubmissionsController::show/$1');
-$routes->post('submissions/(:num)/publish', 'Admin\\SubmissionsController::publish/$1');
+
 
 $routes->get('preview/certificate', 'PreviewController::certificate');
 $routes->get('preview/certificate.pdf', 'PreviewController::certificatePdf');

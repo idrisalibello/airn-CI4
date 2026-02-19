@@ -42,19 +42,41 @@
   <h3 style="margin-top:0">Details</h3>
   <table>
     <tbody>
-      <tr><th style="width:220px">Type</th><td><?= esc($sub['type'] ?? '-') ?></td></tr>
-      <tr><th>Title</th><td><?= esc($sub['title'] ?? '-') ?></td></tr>
+      <tr>
+        <th style="width:220px">Type</th>
+        <td><?= esc($sub['type'] ?? '-') ?></td>
+      </tr>
+      <tr>
+        <th>Title</th>
+        <td><?= esc($sub['title'] ?? '-') ?></td>
+      </tr>
       <?php if (array_key_exists('track', $sub) && !empty($sub['track'])): ?>
-        <tr><th>Track</th><td><?= esc($sub['track']) ?></td></tr>
+        <tr>
+          <th>Track</th>
+          <td><?= esc($sub['track']) ?></td>
+        </tr>
       <?php endif; ?>
       <?php if (array_key_exists('abstract', $sub) && !empty($sub['abstract'])): ?>
-        <tr><th>Abstract</th><td><?php echo 'nl2br(esc($sub[abstract]))'; ?></td></tr>
+        <tr>
+          <th>Abstract</th>
+        <tr>
+          <th>Abstract</th>
+          <td><?= nl2br(esc((string)$sub['abstract'])) ?></td>
+        </tr>
+        </tr>
+
       <?php endif; ?>
       <?php if (array_key_exists('keywords', $sub) && !empty($sub['keywords'])): ?>
-        <tr><th>Keywords</th><td><?= esc($sub['keywords']) ?></td></tr>
+        <tr>
+          <th>Keywords</th>
+          <td><?= esc($sub['keywords']) ?></td>
+        </tr>
       <?php endif; ?>
       <?php if (array_key_exists('current_version_id', $sub)): ?>
-        <tr><th>Current version</th><td><?= !empty($sub['current_version_id']) ? ('#' . (int)$sub['current_version_id']) : '-' ?></td></tr>
+        <tr>
+          <th>Current version</th>
+          <td><?= !empty($sub['current_version_id']) ? ('#' . (int)$sub['current_version_id']) : '-' ?></td>
+        </tr>
       <?php endif; ?>
     </tbody>
   </table>
@@ -82,11 +104,25 @@
           <tr>
             <td><?= (int)$v['id'] ?></td>
             <td><?= isset($v['version_no']) ? ('v' . (int)$v['version_no']) : '-' ?></td>
-            <td><?= esc($v['manuscript_path'] ?? '-') ?></td>
+            <?php
+            $mpRaw = $v['manuscript_path'] ?? '-';
+            $mp = is_string($mpRaw) ? $mpRaw : '-';
+            ?>
+            <td><?= esc($mp) ?></td>
+
             <td>
               <?php if (!empty($v['id'])): ?>
                 <a class="btn" href="/author/submissions/<?= (int)$sub['id'] ?>/download/<?= (int)$v['id'] ?>">Download</a>
               <?php endif; ?>
+              <?php
+              $p = (string)($v['manuscript_path'] ?? '');
+              $ext = strtolower(pathinfo($p, PATHINFO_EXTENSION));
+              ?>
+              <?php if ($ext === 'pdf'): ?>
+                <a class="btn" href="/author/submissions/<?= (int)$sub['id'] ?>/view/<?= (int)$v['id'] ?>" target="_blank">View PDF</a>
+              <?php endif; ?>
+              <a class="btn" href="/author/submissions/<?= (int)$sub['id'] ?>/download/<?= (int)$v['id'] ?>">Download</a>
+
             </td>
           </tr>
         <?php endforeach; ?>

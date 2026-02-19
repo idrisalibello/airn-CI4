@@ -49,24 +49,28 @@
     <label>Title</label>
     <input type="text" name="title" value="<?= esc($old['title'] ?? '') ?>" required>
 
-    <label>Abstract (optional)</label>
-    <textarea name="abstract" rows="6" placeholder="Abstract..."><?= esc($old['abstract'] ?? '') ?></textarea>
+    <l<label>Abstract</label>
+      <textarea name="abstract" rows="6" placeholder="Abstract..." required><?= esc($old['abstract'] ?? '') ?></textarea>
 
-    <label>Keywords (optional)</label>
-    <input type="text" name="keywords" value="<?= esc($old['keywords'] ?? '') ?>" placeholder="comma-separated">
 
-    <label>Manuscript file (PDF, DOC, DOCX)</label>
-    <input type="file" name="manuscript" accept=".pdf,.doc,.docx" required>
+      <label>Keywords (optional)</label>
+      <input type="text" name="keywords" value="<?= esc($old['keywords'] ?? '') ?>" placeholder="comma-separated">
 
-    <div class="row" style="margin-top:10px">
-      <button type="submit">Submit</button>
-      <a class="btn" href="/author/submissions">Cancel</a>
-    </div>
+      <label>Note to editor (optional)</label>
+      <textarea name="author_note" rows="3" placeholder="Any message for the editorial team..."><?= esc($old['author_note'] ?? '') ?></textarea>
+
+      <label>Manuscript file (PDF, DOC, DOCX)</label>
+      <input type="file" name="manuscript" accept=".pdf,.doc,.docx" required>
+
+      <div class="row" style="margin-top:10px">
+        <button type="submit">Submit</button>
+        <a class="btn" href="/author/submissions">Cancel</a>
+      </div>
   </form>
 </div>
 
 <script>
-  function toggleType(){
+  function toggleType() {
     var t = document.getElementById('typeSel').value;
     document.getElementById('journalBox').style.display = (t === 'journal') ? 'block' : 'none';
     document.getElementById('confBox').style.display = (t === 'conference') ? 'block' : 'none';
