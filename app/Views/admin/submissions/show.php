@@ -12,6 +12,7 @@
 
   $dec = $decision ?? null;
   $decText = is_array($dec) && isset($dec['decision']) ? (string)$dec['decision'] : '';
+  $presCert = $presentation_certificate ?? null;
 ?>
 
 <div class="card">
@@ -118,6 +119,29 @@
     </div>
 
   <?php else: ?>
+
+  <?php if ($type === 'conference'): ?>
+    <h3>Presentation Certificate</h3>
+
+    <?php if (!empty($presCert) && is_array($presCert)): ?>
+      <div style="display:flex; gap:8px; align-items:center; margin-top:10px;">
+        <a class="btn" href="<?= site_url("admin/submissions/{$subId}/presentation-certificate") ?>">Download Presentation Certificate</a>
+        <a class="btn" target="_blank" href="<?= site_url('verify/certificate/'.(string)$presCert['code']) ?>">Verify Link</a>
+      </div>
+    <?php else: ?>
+      <?php if ($decText !== 'accept' && $status !== 'accepted'): ?>
+        <div class="card err" style="margin:10px 0;">
+          Issuing is disabled until the submission is <strong>accepted</strong>.
+        </div>
+      <?php endif; ?>
+
+      <form method="post" action="<?= site_url("admin/submissions/{$subId}/present") ?>" style="margin-top:10px;">
+        <?= csrf_field() ?>
+        <button class="btn" type="submit">Mark as Presented & Issue Certificate</button>
+      </form>
+    <?php endif; ?>
+
+  <?php else: ?>
     <h3>Publish</h3>
 
     <?php if ($decText !== 'accept' && $status !== 'accepted'): ?>
@@ -144,6 +168,8 @@
       <button class="btn" type="submit">Publish & Issue Certificate</button>
     </form>
   <?php endif; ?>
+
+<?php endif; ?>
 </div>
 
 <?= $this->endSection() ?>

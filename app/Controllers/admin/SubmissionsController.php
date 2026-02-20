@@ -25,6 +25,218 @@ class SubmissionsController extends BaseController
         ]);
     }
 
+    public function present(int $id)
+    {
+        $db = \Config\Database::connect();
+
+        $sub = $db->table('submissions')->where('id', $id)->get()->getRowArray();
+        if (!$sub) throw PageNotFoundException::forPageNotFound('Submission not found');
+
+        if ((string)($sub['type'] ?? '') !== 'conference') {
+            return redirect()->to('/admin/submissions/' . $id)->with('error', 'Presentation certificates apply to conference submissions only.');
+        }
+
+        // Gate: must be accepted (by status OR latest decision)
+        $latestDecision = $db->table('decisions')
+            ->where('submission_id', $id)
+            ->orderBy('id', 'DESC')
+            ->limit(1)
+            ->get()->getRowArray();
+
+        $isAccepted =
+            ((string)($sub['status'] ?? '') === 'accepted') ||
+            (!empty($latestDecision) && (string)($latestDecision['decision'] ?? '') === 'accept');
+
+        if (!$isAccepted) {
+            return redirect()->to('/admin/submissions/' . $id)->with('error', 'Cannot issue presentation certificate: submission not accepted.');
+        }
+
+        // Prevent double issue
+        $exists = $db->table('certificate_issuances')
+            ->where('type', 'presentation')
+            ->where('submission_id', $id)
+            ->countAllResults();
+
+        if ($exists > 0) {
+            return redirect()->to('/admin/submissions/' . $id)->with('error', 'Presentation certificate already issued.');
+        }
+
+        $now = date('Y-m-d H:i:s');
+
+        $db->transStart();
+
+        $code = 'AIRN-PRES-' . $id . '-' . substr(bin2hex(random_bytes(8)), 0, 8);
+
+        $db->table('certificate_issuances')->insert([
+            'user_id'        => (int)$sub['submitter_user_id'],
+            'type'           => 'presentation',
+            'submission_id'  => $id,
+            'publication_id' => null,
+            'code'           => $code,
+            'issued_at'      => $now,
+            'pdf_path'       => null,
+            'meta_json'      => null,
+        ]);
+
+        $certId = (int)$db->insertID();
+
+        // Context
+        $user = $db->table('users')->where('id', (int)$sub['submitter_user_id'])->get()->getRowArray();
+
+        $conf = null;
+        if (!empty($sub['conference_id'])) {
+            $conf = $db->table('conferences')->where('id', (int)$sub['conference_id'])->get()->getRowArray();
+        }
+
+        if (!$user || !$conf) {
+            $db->transComplete();
+            return redirect()->to('/admin/submissions/' . $id)->with('error', 'Certificate context missing (user or conference).');
+        }
+
+        $year = (int)date('Y', strtotime((string)($conf['start_date'] ?? $now)));
+
+        $brandRight = 'Conference • ' . $year;
+
+        $verifyUrl = base_url('verify/certificate/' . $code);
+
+        $html = view('certificates/presentation', [
+            'brand_left'       => $this->brandLeft($sub),
+            'brand_right'      => $brandRight,
+            'recipient_name'   => (string)($user['name'] ?? ''),
+            'paper_title'      => (string)($sub['title'] ?? ''),
+            'conference_name'  => (string)($conf['name'] ?? ''),
+            'conference_venue' => (string)($conf['venue'] ?? ''),
+            'start_date'       => (string)($conf['start_date'] ?? ''),
+            'end_date'         => (string)($conf['end_date'] ?? ''),
+            'code'             => $code,
+            'verify_url'       => $verifyUrl,
+            'verify_short'     => 'airn/verify/' . $code,
+        ]);
+
+        $dompdf = new \Dompdf\Dompdf();
+        $options = $dompdf->getOptions();
+        if (method_exists($options, 'setIsRemoteEnabled')) {
+            $options->setIsRemoteEnabled(true);
+        }
+        $dompdf->setOptions($options);
+
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'landscape');
+        $dompdf->render();
+
+        $dir = WRITEPATH . 'certificates/' . $year;
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+
+        $rel = 'certificates/' . $year . '/' . $code . '.pdf';
+        $abs = WRITEPATH . $rel;
+
+        file_put_contents($abs, $dompdf->output());
+
+        $db->table('certificate_issuances')->where('id', $certId)->update([
+            'pdf_path' => $rel,
+        ]);
+
+        $db->transComplete();
+
+        if ($db->transStatus() === false) {
+            return redirect()->to('/admin/submissions/' . $id)->with('error', 'Issue failed.');
+        }
+
+        return redirect()->to('/admin/submissions/' . $id)->with('flash', 'Marked as presented. Certificate issued.');
+    }
+
+    public function presentationCertificate(int $id)
+    {
+        $db = \Config\Database::connect();
+
+        $sub = $db->table('submissions')->where('id', $id)->get()->getRowArray();
+        if (!$sub) throw PageNotFoundException::forPageNotFound('Submission not found');
+
+        if ((string)($sub['type'] ?? '') !== 'conference') {
+            return redirect()->to('/admin/submissions/' . $id)->with('error', 'Not a conference submission.');
+        }
+
+        $cert = $db->table('certificate_issuances')
+            ->where('type', 'presentation')
+            ->where('submission_id', $id)
+            ->orderBy('id', 'DESC')
+            ->limit(1)
+            ->get()->getRowArray();
+
+        if (!$cert) {
+            return redirect()->to('/admin/submissions/' . $id)->with('error', 'Presentation certificate not issued yet.');
+        }
+
+        $pdfPathRaw = $cert['pdf_path'] ?? '';
+        $pdfPath = is_string($pdfPathRaw) ? $pdfPathRaw : '';
+        if ($pdfPath !== '') {
+            $absExisting = WRITEPATH . ltrim($pdfPath, '/\\');
+            if (is_file($absExisting)) {
+                return $this->response->download($absExisting, null);
+            }
+        }
+
+        // Regenerate (fallback)
+        $user = $db->table('users')->where('id', (int)$cert['user_id'])->get()->getRowArray();
+        $conf = null;
+        if (!empty($sub['conference_id'])) {
+            $conf = $db->table('conferences')->where('id', (int)$sub['conference_id'])->get()->getRowArray();
+        }
+
+        if (!$user || !$conf) {
+            return redirect()->to('/admin/submissions/' . $id)->with('error', 'Certificate context missing.');
+        }
+
+        $certCode = (string)($cert['code'] ?? '');
+        $year = (int)date('Y', strtotime((string)($conf['start_date'] ?? date('Y-m-d'))));
+        $brandRight = 'Conference • ' . $year;
+
+        $verifyUrl = base_url('verify/certificate/' . $certCode);
+
+        $html = view('certificates/presentation', [
+            'brand_left'       => $this->brandLeft($sub),
+            'brand_right'      => $brandRight,
+            'recipient_name'   => (string)($user['name'] ?? ''),
+            'paper_title'      => (string)($sub['title'] ?? ''),
+            'conference_name'  => (string)($conf['name'] ?? ''),
+            'conference_venue' => (string)($conf['venue'] ?? ''),
+            'start_date'       => (string)($conf['start_date'] ?? ''),
+            'end_date'         => (string)($conf['end_date'] ?? ''),
+            'code'             => $certCode,
+            'verify_url'       => $verifyUrl,
+            'verify_short'     => 'airn/verify/' . $certCode,
+        ]);
+
+        $dompdf = new \Dompdf\Dompdf();
+        $options = $dompdf->getOptions();
+        if (method_exists($options, 'setIsRemoteEnabled')) {
+            $options->setIsRemoteEnabled(true);
+        }
+        $dompdf->setOptions($options);
+
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'landscape');
+        $dompdf->render();
+
+        $dir = WRITEPATH . 'certificates/' . $year;
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0775, true);
+        }
+
+        $rel = 'certificates/' . $year . '/' . $certCode . '.pdf';
+        $abs = WRITEPATH . $rel;
+
+        file_put_contents($abs, $dompdf->output());
+
+        $db->table('certificate_issuances')
+            ->where('id', (int)$cert['id'])
+            ->update(['pdf_path' => $rel]);
+
+        return $this->response->download($abs, null);
+    }
+
     public function show(int $id)
     {
         $db = \Config\Database::connect();
@@ -46,6 +258,8 @@ class SubmissionsController extends BaseController
             ->get()->getRowArray();
 
         $cert = null;
+
+        // Publication cert (journal flow)
         if ($pub) {
             $cert = $db->table('certificate_issuances')
                 ->where('type', 'publication')
@@ -55,11 +269,25 @@ class SubmissionsController extends BaseController
                 ->get()->getRowArray();
         }
 
+        // Presentation cert (conference flow)
+        $presentationCert = null;
+        if ((string)($sub['type'] ?? '') === 'conference') {
+            $presentationCert = $db->table('certificate_issuances')
+                ->where('type', 'presentation')
+                ->where('submission_id', $id)
+                ->orderBy('id', 'DESC')
+                ->limit(1)
+                ->get()->getRowArray();
+        }
+
+
+
         return view('admin/submissions/show', [
             'title' => 'Submission #' . $id,
             'sub' => $sub,
             'versions' => $versions,
             'publication' => $pub,
+            'presentation_certificate' => $presentationCert,
             'decision' => $decision,
             'certificate' => $cert,
             'flash' => session('flash'),

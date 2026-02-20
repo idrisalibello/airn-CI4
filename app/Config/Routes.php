@@ -94,13 +94,10 @@ $routes->group('admin', ['filter' => 'role:admin'], static function ($routes) {
     $routes->post('conferences/(:num)', 'Admin\ConferencesController::update/$1');
     $routes->post('conferences/(:num)/delete', 'Admin\ConferencesController::delete/$1');
 
-    // Submissions + Publishing (admin-only)
-    // $routes->get('submissions', 'Admin\SubmissionsController::index');
-    // $routes->get('submissions/(:num)', 'Admin\SubmissionsController::show/$1');
-    // $routes->post('submissions/(:num)/publish', 'Admin\SubmissionsController::publish/$1');
-    // $routes->get('submissions/(:num)/download/(:num)', 'Admin\SubmissionsController::download/$1/$2');
-    // $routes->get('submissions/(:num)/view/(:num)', 'Admin\SubmissionsController::view/$1/$2');
-    // Submissions
+    // Presentation certificate (conference)
+    $routes->post('submissions/(:num)/present', 'Admin\SubmissionsController::present/$1');
+    $routes->get('submissions/(:num)/presentation-certificate', 'Admin\SubmissionsController::presentationCertificate/$1');
+
     $routes->get('submissions', 'Admin\SubmissionsController::index');
     $routes->get('submissions/(:num)', 'Admin\SubmissionsController::show/$1');
 
