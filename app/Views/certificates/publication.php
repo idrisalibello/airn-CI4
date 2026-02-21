@@ -355,7 +355,7 @@
     <div class="frame">
         <div class="inner">
             <div class="banner"></div>
-            <div class="wm">AIRN</div>
+            <div class="wm">AIRN JOURNAL</div>
 
             <div class="content">
                 <table class="hdr">
@@ -372,7 +372,7 @@
                 </table>
 
                 <div class="center">
-                    <div class="t1">CERTIFICATE OF PUBLICATION</div>
+                    <div class="t1">CERTIFICATE OF JOURNAL PUBLICATION</div>
                     <div class="t2">Issued in recognition of an official scholarly publication</div>
                 </div>
 
@@ -380,7 +380,7 @@
                 <div class="center"><span class="name"><?= esc($recipient_name ?? 'Author') ?></span></div>
 
                 <div class="paperBox">
-                    <div class="lbl">Published Article Title</div>
+                    <div class="lbl">Published Journal Article Title</div>
                     <p class="paper">“<?= esc($paper_title ?? '-') ?>”</p>
                 </div>
 

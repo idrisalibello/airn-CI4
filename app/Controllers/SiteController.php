@@ -128,6 +128,16 @@ class SiteController extends BaseController
         $sub = $db->table('submissions')->where('id', $submissionId)->get()->getRowArray();
         if (!$sub) throw PageNotFoundException::forPageNotFound('Submission not found');
 
+        // Prefer final published PDF (auto-generated) if present
+        $pubPath = (string)($pub['published_file_path'] ?? '');
+        if ($pubPath !== '') {
+            $absPub = WRITEPATH . ltrim($pubPath, '/\\');
+            if (is_file($absPub)) {
+                return $this->response->download($absPub, null);
+            }
+        }
+
+        // Fallback: manuscript (legacy)
         if (empty($sub['current_version_id'])) throw PageNotFoundException::forPageNotFound('No file');
         $ver = $db->table('submission_versions')->where('id', (int)$sub['current_version_id'])->get()->getRowArray();
         if (!$ver || empty($ver['manuscript_path'])) throw PageNotFoundException::forPageNotFound('No file');

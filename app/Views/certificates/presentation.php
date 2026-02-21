@@ -69,15 +69,17 @@ $rightData = is_file($rightPath) ? 'data:image/png;base64,' . base64_encode(file
     .banner { height: 5mm; background: var(--accent); border-radius: 3mm; margin-bottom: 4mm; }
 
     .wm {
-      position: absolute; left: 0; right: 0;
-      top: 45%;
-      transform: translateY(-50%);
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-30deg);
       text-align: center;
-      font-size: 110px;
+      font-size: 240px;
       font-weight: 900;
       color: var(--accent);
       opacity: 0.045;
-      letter-spacing: 12px;
+      letter-spacing: 18px;
+      white-space: nowrap;
       z-index: 0;
     }
 
@@ -111,7 +113,7 @@ $rightData = is_file($rightPath) ? 'data:image/png;base64,' . base64_encode(file
     }
 
     .paperBox {
-      margin: 8mm auto 0;
+      margin: 7mm auto 0;
       width: 90%;
       border: 1px solid #d7e0f2;
       background: #f5f7fc;
@@ -128,7 +130,7 @@ $rightData = is_file($rightPath) ? 'data:image/png;base64,' . base64_encode(file
       word-break: break-word;
     }
 
-    .row2 { width: 90%; margin: 8mm auto 0; }
+    .row2 { width: 90%; margin: 6mm auto 0; }
     .row2 td { vertical-align: middle; }
 
     .details { font-size: 12px; }
@@ -143,22 +145,32 @@ $rightData = is_file($rightPath) ? 'data:image/png;base64,' . base64_encode(file
     .sealWrap { text-align: right; }
     .seal {
       display: inline-block;
-      width: 120px; height: 120px;
+      width: 112px;
+      height: 112px;
       border-radius: 999px;
       border: 4px solid rgba(15,81,50,0.9);
       background: rgba(15,81,50,0.05);
       text-align: center;
       color: var(--accent);
       font-weight: 900;
-      padding-top: 18px;
+      padding-top: 14px;
+      overflow: hidden;
     }
     .sealTop { font-size: 10px; letter-spacing: 1px; }
     .sealMid { margin-top: 5px; font-size: 16px; letter-spacing: .5px; }
     .sealStars { margin-top: 4px; font-size: 12px; letter-spacing: 3px; }
     .sealBrand { margin-top: 4px; font-size: 11px; letter-spacing: 1px; }
-    .sealCode { margin-top: 5px; font-size: 9px; line-height: 1.1; padding: 0 8px; }
+    .sealCode {
+      margin-top: 4px;
+      font-size: 8px;
+      line-height: 1.05;
+      padding: 0 8px;
+      word-break: break-all;
+      max-height: 26px;
+      overflow: hidden;
+    }
 
-    .sign { width: 90%; margin: 10mm auto 0; }
+    .sign { width: 90%; margin: 7mm auto 0; }
     .sig td { vertical-align: top; }
 
     .sigLineLeft { border-top: 1px solid #666; padding-top: 2mm; width: 85%; }
@@ -184,7 +196,7 @@ $rightData = is_file($rightPath) ? 'data:image/png;base64,' . base64_encode(file
   <div class="frame">
     <div class="inner">
       <div class="banner"></div>
-      <div class="wm">AIRN CONF</div>
+      <div class="wm">AIRN CONFERENCE</div>
 
       <div class="content">
         <table class="hdr">

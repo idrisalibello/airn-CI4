@@ -397,6 +397,7 @@ class SubmissionsController extends BaseController
             'pages'         => $pages,
             'doi'           => ($doi !== '' ? $doi : null),
             'citation_json' => null,
+                    'published_file_path' => null,
         ]);
 
         $pubId = (int)$db->insertID();
@@ -432,7 +433,101 @@ class SubmissionsController extends BaseController
             return redirect()->to('/admin/submissions/' . $id)->with('error', 'Published but certificate context missing.');
         }
 
-        // Build certificate HTML
+        
+        // Auto-generate final published PDF (preferred) when manuscript is DOC/DOCX.
+        // If manuscript is already PDF, AIRN cannot reliably re-typeset it without a PDF compositor.
+        // In that case, admins may still upload a final PDF separately (future enhancement).
+        $publishedFileRel = null;
+
+        try {
+            $subRow = $db->table('submissions')->where('id', $id)->get()->getRowArray();
+            if (!empty($subRow['current_version_id'])) {
+                $ver = $db->table('submission_versions')->where('id', (int)$subRow['current_version_id'])->get()->getRowArray();
+                $manRel = (string)($ver['manuscript_path'] ?? '');
+                if ($manRel !== '') {
+                    $manAbs = WRITEPATH . 'uploads/' . ltrim($manRel, '/\\');
+                    $ext = strtolower(pathinfo($manAbs, PATHINFO_EXTENSION));
+
+                    if (in_array($ext, ['doc', 'docx'], true) && class_exists('PhpOffice\\PhpWord\\IOFactory')) {
+                        $yearPub = (int)date('Y', strtotime((string)($pub['published_at'] ?? $now)));
+                        $dirPub = WRITEPATH . 'uploads/published/' . $yearPub;
+                        if (!is_dir($dirPub)) @mkdir($dirPub, 0775, true);
+
+                        // Convert DOCX -> HTML
+                        $phpWord = \PhpOffice\PhpWord\IOFactory::load($manAbs);
+                        $htmlWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'HTML');
+
+                        ob_start();
+                        $htmlWriter->save('php://output');
+                        $docHtml = (string)ob_get_clean();
+
+                        // Basic cleanup (keep it conservative)
+                        $docHtml = preg_replace('#<style[^>]*>.*?</style>#si', '', $docHtml);
+                        $docHtml = preg_replace('#<meta[^>]*>#i', '', $docHtml);
+
+                        // Prepare header strings (matches approved format structure)
+                        $yearPub = (int)date('Y', strtotime((string)($pub['published_at'] ?? $now)));
+                        $headerLeft = 'AIRN Journal of Computing Systems';
+                        $headerRight = 'Vol. ' . (($pub['volume'] ?? '') !== '' ? $pub['volume'] : '—')
+                            . ' • Issue ' . (($pub['issue'] ?? '') !== '' ? $pub['issue'] : '—')
+                            . ' • ' . $yearPub;
+
+                        // Use submission title; authors/affiliations are not stored structurally in this build,
+                        // so we leave them blank unless you later add structured metadata.
+                        $articleHtml = view('publications/article_pdf', [
+                            'header_left'        => $headerLeft,
+                            'header_right'       => $headerRight,
+                            'doi'                => (string)($pub['doi'] ?? '-'),
+                            'license'            => 'CC BY 4.0',
+                            'received_at'        => !empty($sub['created_at']) ? date('d M Y', strtotime((string)$sub['created_at'])) : '-',
+                            'accepted_at'        => !empty($latestDecision['created_at']) ? date('d M Y', strtotime((string)$latestDecision['created_at'])) : '-',
+                            'published_at'       => date('d M Y', strtotime((string)($pub['published_at'] ?? $now))),
+                            'article_id'         => 'AIRN-' . $yearPub . '-' . str_pad((string)$id, 3, '0', STR_PAD_LEFT),
+                            'page_label'         => '',
+
+                            'title'              => (string)($sub['title'] ?? ''),
+                            'authors_html'       => '',
+                            'affiliations_html'  => '',
+                            'corresponding_html' => '',
+                            'body_html'          => $docHtml,
+                        ]);
+
+                        $dom = new \Dompdf\Dompdf();
+                        $opt = $dom->getOptions();
+                        if (method_exists($opt, 'setIsRemoteEnabled')) {
+                            $opt->setIsRemoteEnabled(true);
+                        }
+                        $dom->setOptions($opt);
+
+                        $dom->loadHtml($articleHtml);
+                        $dom->setPaper('A4', 'portrait');
+                        $dom->render();
+
+                        // Add page number in header right (similar placement to approved sample)
+                        $canvas = $dom->getCanvas();
+                        $font = $dom->getFontMetrics()->getFont('helvetica', 'normal');
+                        // x, y tuned for A4 portrait with our header
+                        $canvas->page_text(520, 32, "Page {PAGE_NUM}", $font, 9, [0,0,0]);
+
+                        $publishedFileRel = 'uploads/published/' . $yearPub . '/published_' . $id . '_' . date('Ymd_His') . '.pdf';
+                        $publishedAbs = WRITEPATH . $publishedFileRel;
+                        file_put_contents($publishedAbs, $dom->output());
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Keep publish flow alive even if auto-typeset fails; admin can still proceed.
+            $publishedFileRel = null;
+        }
+
+        // Persist published PDF path (if generated)
+        if ($publishedFileRel) {
+            $db->table('publications')->where('id', $pubId)->update([
+                'published_file_path' => $publishedFileRel,
+            ]);
+        }
+
+// Build certificate HTML
         $publishedAt = (string)($pub['published_at'] ?? $now);
         $year = (int)date('Y', strtotime($publishedAt));
 
