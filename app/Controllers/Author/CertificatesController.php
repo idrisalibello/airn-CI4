@@ -66,6 +66,14 @@ class CertificatesController extends BaseController
                 return redirect()->to('/author/certificates')->with('error', 'Conference not found.');
             }
 
+
+            $confSettings = [];
+            if (!empty($conf['settings_json'])) {
+                $tmp = json_decode((string)$conf['settings_json'], true);
+                if (is_array($tmp)) $confSettings = $tmp;
+            }
+            $confTheme = trim((string)($confSettings['theme'] ?? ''));
+
             $year = (int)date('Y', strtotime((string)($conf['start_date'] ?? date('Y-m-d'))));
             $brandRight = 'Conference • ' . $year;
 
@@ -74,13 +82,17 @@ class CertificatesController extends BaseController
                 'brand_right'      => $brandRight,
                 'recipient_name'   => (string)($user['name'] ?? ''),
                 'paper_title'      => (string)($sub['title'] ?? ''),
+                'authors' => ($sub['authors'] ?? ($user['name'] ?? '')),
                 'conference_name'  => (string)($conf['name'] ?? ''),
+                'conference_theme' => $confTheme,
                 'conference_venue' => (string)($conf['venue'] ?? ''),
                 'start_date'       => (string)($conf['start_date'] ?? ''),
                 'end_date'         => (string)($conf['end_date'] ?? ''),
                 'code'             => (string)($cert['code'] ?? ''),
-                'verify_url'       => base_url('verify/certificate/' . (string)($cert['code'] ?? '')),
-                'verify_short'     => 'airn/verify/' . (string)($cert['code'] ?? ''),
+                // 'verify_url'       => base_url('verify/' . (string)($cert['code'] ?? '')),
+                // 'verify_short'     => base_url('verify/' . (string)($cert['code'] ?? '')),
+                'verify_url'       => 'verify/' . (string)($cert['code'] ?? ''),
+                'verify_short'     => 'verify/' . (string)($cert['code'] ?? ''),
             ]);
 
             $dompdf = new Dompdf();
@@ -116,13 +128,17 @@ class CertificatesController extends BaseController
             'brand_right'    => $brandRight,
             'recipient_name' => $user['name'],
             'paper_title'    => $sub['title'],
+            'authors' => ($sub['authors'] ?? $user['name']),
             'published_at'   => $pub['published_at'],
             'doi'            => $pub['doi'],
             'volume'         => $pub['volume'],
             'issue'          => $pub['issue'],
             'pages'          => $pub['pages'],
             'code'           => $cert['code'],
-            'verify_url'     => base_url('verify/certificate/' . $cert['code']),
+            // 'verify_url'     => base_url('verify/' . $cert['code']),
+            // 'verify_short'   => base_url('verify/' . $cert['code']),
+            'verify_url'       => 'verify/' . (string)($cert['code'] ?? ''),
+            'verify_short'     => 'verify/' . (string)($cert['code'] ?? ''),
         ]);
 
         $dompdf = new Dompdf();

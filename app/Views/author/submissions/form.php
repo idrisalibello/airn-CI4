@@ -46,10 +46,19 @@
       <input type="text" name="track" value="<?= esc($old['track'] ?? '') ?>" placeholder="e.g. AI, Networks, Security">
     </div>
 
-    <label>Title</label>
+       <label>Title</label>
     <input type="text" name="title" value="<?= esc($old['title'] ?? '') ?>" required>
 
-    <l<label>Abstract</label>
+    <label>Authors</label>
+    <input
+      type="text"
+      name="authors"
+      value="<?= esc($old['authors'] ?? '') ?>"
+      placeholder="e.g. Idris A. Bello; Jane Doe; ..."
+      required
+    >
+
+    <label>Abstract</label>
       <textarea name="abstract" rows="6" placeholder="Abstract..." required><?= esc($old['abstract'] ?? '') ?></textarea>
 
 

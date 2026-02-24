@@ -9,6 +9,20 @@
   </div>
 </div>
 
+<div class="card">
+  <?php if (!empty($conf['theme'])): ?>
+    <p style="margin:0 0 8px"><strong>Theme:</strong> <?= esc($conf['theme']) ?></p>
+  <?php endif; ?>
+
+  <?php if (!empty($conf['announcement'])): ?>
+    <p style="margin:0" class="muted"><?= nl2br(esc((string)$conf['announcement'])) ?></p>
+  <?php else: ?>
+    <p class="muted" style="margin:0">No conference announcement yet.</p>
+  <?php endif; ?>
+</div>
+
+
+
 <h3>Proceedings (Published)</h3>
 <?php if (empty($published)): ?>
   <div class="card">No proceedings published yet.</div>

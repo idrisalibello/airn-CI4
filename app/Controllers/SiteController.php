@@ -53,6 +53,17 @@ class SiteController extends BaseController
         $db = \Config\Database::connect();
         $items = $db->table('conferences')->orderBy('start_date', 'DESC')->get()->getResultArray();
 
+        foreach ($items as &$c) {
+            $settings = [];
+            if (!empty($c['settings_json'])) {
+                $tmp = json_decode((string)$c['settings_json'], true);
+                if (is_array($tmp)) $settings = $tmp;
+            }
+            $c['theme'] = trim((string)($settings['theme'] ?? ''));
+            $c['announcement'] = trim((string)($settings['announcement'] ?? ''));
+        }
+        unset($c);
+
         return view('site/conferences_list', [
             'title' => 'Conferences',
             'items' => $items,
@@ -64,6 +75,14 @@ class SiteController extends BaseController
         $db = \Config\Database::connect();
         $conf = $db->table('conferences')->where('slug', $slug)->get()->getRowArray();
         if (!$conf) throw PageNotFoundException::forPageNotFound('Conference not found');
+
+        $settings = [];
+        if (!empty($conf['settings_json'])) {
+            $tmp = json_decode((string)$conf['settings_json'], true);
+            if (is_array($tmp)) $settings = $tmp;
+        }
+        $conf['theme'] = trim((string)($settings['theme'] ?? ''));
+        $conf['announcement'] = trim((string)($settings['announcement'] ?? ''));
 
         $published = $db->table('publications p')
             ->select('p.id AS publication_id, p.published_at, s.id AS submission_id, s.title, s.track')

@@ -47,6 +47,7 @@ class SubmissionsController extends BaseController
 
         $type = trim((string)$this->request->getPost('type'));
         $title = trim((string)$this->request->getPost('title'));
+        $authors = trim((string)$this->request->getPost('authors'));
         $abstract = trim((string)$this->request->getPost('abstract'));
         $keywords = trim((string)$this->request->getPost('keywords'));
         $track = trim((string)$this->request->getPost('track'));
@@ -54,6 +55,14 @@ class SubmissionsController extends BaseController
         $conferenceId = (int)$this->request->getPost('conference_id');
         $authorNote = trim((string)$this->request->getPost('author_note'));
 
+
+        $userRow = $db->table('users')->where('id', $uid)->get()->getRowArray();
+        if (!$userRow) {
+            return redirect()->back()->withInput()->with('error', 'User context missing. Please login again.');
+        }
+        if ($authors === '') {
+            $authors = trim((string)($userRow['name'] ?? ''));
+        }
         if (!in_array($type, ['journal', 'conference'], true)) {
             return redirect()->back()->withInput()->with('error', 'Select submission type.');
         }
@@ -90,6 +99,7 @@ class SubmissionsController extends BaseController
             'conference_id' => ($type === 'conference' ? $conferenceId : null),
             'track' => ($track !== '' ? $track : null),
             'title' => $title,
+            'authors' => $authors,
             'abstract' => $abstract,
             'keywords' => ($keywords !== '' ? $keywords : null),
             'submitter_user_id' => $uid,

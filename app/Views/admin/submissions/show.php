@@ -2,17 +2,17 @@
 <?= $this->section('content') ?>
 
 <?php
-  $subId = (int)($sub['id'] ?? 0);
+$subId = (int)($sub['id'] ?? 0);
 
-  $typeRaw = $sub['type'] ?? '';
-  $statusRaw = $sub['status'] ?? '';
-  $type = is_string($typeRaw) ? $typeRaw : '';
-  $status = is_string($statusRaw) ? $statusRaw : '';
-  $headline = trim($type . ' • ' . $status, " \t\n\r\0\x0B•");
+$typeRaw = $sub['type'] ?? '';
+$statusRaw = $sub['status'] ?? '';
+$type = is_string($typeRaw) ? $typeRaw : '';
+$status = is_string($statusRaw) ? $statusRaw : '';
+$headline = trim($type . ' • ' . $status, " \t\n\r\0\x0B•");
 
-  $dec = $decision ?? null;
-  $decText = is_array($dec) && isset($dec['decision']) ? (string)$dec['decision'] : '';
-  $presCert = $presentation_certificate ?? null;
+$dec = $decision ?? null;
+$decText = is_array($dec) && isset($dec['decision']) ? (string)$dec['decision'] : '';
+$presCert = $presentation_certificate ?? null;
 ?>
 
 <div class="card">
@@ -46,12 +46,12 @@
       <tbody>
         <?php foreach ($versions as $v): ?>
           <?php
-            $vId = (int)($v['id'] ?? 0);
-            $vNo = (int)($v['version_no'] ?? 0);
+          $vId = (int)($v['id'] ?? 0);
+          $vNo = (int)($v['version_no'] ?? 0);
 
-            $mpRaw = $v['manuscript_path'] ?? '';
-            $mp = is_string($mpRaw) ? $mpRaw : '';
-            $ext = $mp !== '' ? strtolower((string)pathinfo($mp, PATHINFO_EXTENSION)) : '';
+          $mpRaw = $v['manuscript_path'] ?? '';
+          $mp = is_string($mpRaw) ? $mpRaw : '';
+          $ext = $mp !== '' ? strtolower((string)pathinfo($mp, PATHINFO_EXTENSION)) : '';
           ?>
           <tr>
             <td>v<?= $vNo ?></td>
@@ -114,62 +114,70 @@
     <div style="display:flex; gap:8px; align-items:center; margin-top:10px;">
       <a class="btn" href="<?= site_url("admin/submissions/{$subId}/certificate") ?>">Download Certificate</a>
       <?php if (!empty($certificate) && is_array($certificate)): ?>
-        <a class="btn" target="_blank" href="<?= site_url('verify/certificate/'.(string)$certificate['code']) ?>">Verify Link</a>
+        <a class="btn" target="_blank" href="<?= site_url('verify/certificate/' . (string)$certificate['code']) ?>">Verify Link</a>
       <?php endif; ?>
     </div>
 
   <?php else: ?>
 
-  <?php if ($type === 'conference'): ?>
-    <h3>Presentation Certificate</h3>
+    <?php if ($type === 'conference'): ?>
+      <h3>Presentation Certificate</h3>
 
-    <?php if (!empty($presCert) && is_array($presCert)): ?>
-      <div style="display:flex; gap:8px; align-items:center; margin-top:10px;">
-        <a class="btn" href="<?= site_url("admin/submissions/{$subId}/presentation-certificate") ?>">Download Presentation Certificate</a>
-        <a class="btn" target="_blank" href="<?= site_url('verify/certificate/'.(string)$presCert['code']) ?>">Verify Link</a>
-      </div>
-    <?php else: ?>
-      <?php if ($decText !== 'accept' && $status !== 'accepted'): ?>
-        <div class="card err" style="margin:10px 0;">
-          Issuing is disabled until the submission is <strong>accepted</strong>.
+      <?php if (!empty($presCert) && is_array($presCert)): ?>
+        <div style="display:flex; gap:8px; align-items:center; margin-top:10px;">
+          <a class="btn" href="<?= site_url("admin/submissions/{$subId}/presentation-certificate") ?>">Download Presentation Certificate</a>
+          <a class="btn" target="_blank" href="<?= site_url('verify/certificate/' . (string)$presCert['code']) ?>">Verify Link</a>
         </div>
+      <?php else: ?>
+        <?php if ($decText !== 'accept' && $status !== 'accepted'): ?>
+          <div class="card err" style="margin:10px 0;">
+            Issuing is disabled until the submission is <strong>accepted</strong>.
+          </div>
+        <?php endif; ?>
+
+        <form method="post" action="<?= site_url("admin/submissions/{$subId}/present") ?>" style="margin-top:10px;">
+          <?= csrf_field() ?>
+          <button class="btn" type="submit">Mark as Presented & Issue Certificate</button>
+        </form>
       <?php endif; ?>
 
-      <form method="post" action="<?= site_url("admin/submissions/{$subId}/present") ?>" style="margin-top:10px;">
+    <?php else: ?>
+      <h3>Publish</h3>
+
+      <?php if ($decText !== 'accept' && $status !== 'accepted'): ?>
+        <div class="card err" style="margin:10px 0;">
+          Publishing is disabled until the submission is <strong>accepted</strong>.
+        </div>
+      <?php endif; ?>
+      <?php
+      $subId = (int)($sub['id'] ?? 0);
+      ?>
+
+      <form method="post" action="<?= site_url("admin/submissions/{$subId}/publish") ?>">
         <?= csrf_field() ?>
-        <button class="btn" type="submit">Mark as Presented & Issue Certificate</button>
+
+        <label>Volume</label>
+        <input name="volume" placeholder="e.g. 1" required>
+
+        <label>Issue</label>
+        <input name="issue" placeholder="e.g. 2" required>
+
+        <label>Pages</label>
+        <input name="pages" placeholder="e.g. 12-19" required>
+
+        <label>DOI</label>
+        <input name="doi" placeholder="optional">
+
+
+        <label>Camera-Ready PDF</label>
+        <input type="file" name="camera_ready_pdf" accept="application/pdf" required>
+        <p style="margin:6px 0 0; font-size:12px; color:#444;">This should be the final PDF (content/diagrams). The system will stamp the journal header/footer, DOI and page numbers during publishing.</p>
+
+        <button class="btn" type="submit">Publish & Issue Certificate</button>
       </form>
     <?php endif; ?>
 
-  <?php else: ?>
-    <h3>Publish</h3>
-
-    <?php if ($decText !== 'accept' && $status !== 'accepted'): ?>
-      <div class="card err" style="margin:10px 0;">
-        Publishing is disabled until the submission is <strong>accepted</strong>.
-      </div>
-    <?php endif; ?>
-
-    <form method="post" action="<?= site_url("admin/submissions/{$subId}/publish") ?>">
-      <?= csrf_field() ?>
-
-      <label>Volume</label>
-      <input name="volume" placeholder="e.g. 1" required>
-
-      <label>Issue</label>
-      <input name="issue" placeholder="e.g. 2" required>
-
-      <label>Pages</label>
-      <input name="pages" placeholder="e.g. 12-19" required>
-
-      <label>DOI</label>
-      <input name="doi" placeholder="optional">
-
-      <button class="btn" type="submit">Publish & Issue Certificate</button>
-    </form>
   <?php endif; ?>
-
-<?php endif; ?>
 </div>
 
 <?= $this->endSection() ?>

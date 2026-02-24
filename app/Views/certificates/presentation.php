@@ -50,20 +50,22 @@ $rightData = is_file($rightPath) ? 'data:image/png;base64,' . base64_encode(file
     :root { --accent: #0F5132; }
 
     .frame {
-      width: 291mm; height: 204mm;
+      width: 291mm; height: 198mm;
       border: 2px solid var(--accent);
       padding: 2mm;
       background: #fff;
       position: relative;
+      overflow: hidden; /* critical: prevent rotated watermark from forcing extra pages in Dompdf */
     }
 
     .inner {
       border: 1px solid #d7e0f2;
       padding: 5mm;
-      height: 100%;
+      height: 96%;
       position: relative;
       display: flex;
       flex-direction: column;
+      overflow: hidden; /* extra safety for Dompdf layout */
     }
 
     .banner { height: 5mm; background: var(--accent); border-radius: 3mm; margin-bottom: 4mm; }
@@ -74,11 +76,11 @@ $rightData = is_file($rightPath) ? 'data:image/png;base64,' . base64_encode(file
       left: 50%;
       transform: translate(-50%, -50%) rotate(-30deg);
       text-align: center;
-      font-size: 240px;
+      font-size: 220px;
       font-weight: 900;
       color: var(--accent);
       opacity: 0.045;
-      letter-spacing: 18px;
+      letter-spacing: 14px;
       white-space: nowrap;
       z-index: 0;
     }
@@ -101,10 +103,10 @@ $rightData = is_file($rightPath) ? 'data:image/png;base64,' . base64_encode(file
     .t1 { margin-top: 5mm; font-size: 32px; font-weight: 900; letter-spacing: 2px; }
     .t2 { margin-top: 2mm; font-size: 14px; color: #444; }
 
-    .awarded { margin-top: 8mm; font-size: 14px; color: #333; }
+    .awarded { margin-top: 6mm; font-size: 14px; color: #333; }
     .name {
       margin-top: 3mm;
-      font-size: 32px;
+      font-size: 22px;
       font-weight: 900;
       letter-spacing: .5px;
       border-bottom: 1px double #d7e0f2;
@@ -113,7 +115,7 @@ $rightData = is_file($rightPath) ? 'data:image/png;base64,' . base64_encode(file
     }
 
     .paperBox {
-      margin: 7mm auto 0;
+      margin: 6mm auto 0;
       width: 90%;
       border: 1px solid #d7e0f2;
       background: #f5f7fc;
@@ -130,7 +132,7 @@ $rightData = is_file($rightPath) ? 'data:image/png;base64,' . base64_encode(file
       word-break: break-word;
     }
 
-    .row2 { width: 90%; margin: 6mm auto 0; }
+    .row2 { width: 90%; margin: 5mm auto 0; }
     .row2 td { vertical-align: middle; }
 
     .details { font-size: 12px; }
@@ -170,7 +172,7 @@ $rightData = is_file($rightPath) ? 'data:image/png;base64,' . base64_encode(file
       overflow: hidden;
     }
 
-    .sign { width: 90%; margin: 7mm auto 0; }
+    .sign { width: 90%; margin: 6mm auto 0; }
     .sig td { vertical-align: top; }
 
     .sigLineLeft { border-top: 1px solid #666; padding-top: 2mm; width: 85%; }
@@ -218,21 +220,27 @@ $rightData = is_file($rightPath) ? 'data:image/png;base64,' . base64_encode(file
         </div>
 
         <div class="center awarded">This certificate is hereby awarded to</div>
-        <div class="center"><span class="name"><?= esc($recipient_name ?? 'Presenter') ?></span></div>
+        <div class="center"><span class="name"><?= esc($authors ?? 'Presenter') ?></span></div>
 
         <div class="paperBox">
           <div class="lbl">Presented Paper Title</div>
           <p class="paper">“<?= esc($paper_title ?? '-') ?>”</p>
         </div>
 
-        <table class="row2">
+                <!-- <div class="center" style="margin-top:3mm; font-size:12px; color:#333;">
+                    <strong>Authors:</strong> <?= esc($authors ?? ($recipient_name ?? '')) ?>
+                </div> -->
+
+
+                <table class="row2">
           <tr>
             <td style="width:70%;">
               <div class="details">
                 <div><strong>Conference</strong> <?= esc($conference_name ?? '-') ?></div>
+<?php if (!empty($conference_theme)): ?>                  <div><strong>Theme</strong> <?= esc($conference_theme) ?></div>                <?php endif; ?>
                 <div><strong>Venue</strong> <?= esc($conference_venue ?? '-') ?></div>
                 <div><strong>Date</strong> <?= esc($confDate) ?></div>
-                <div><strong>Verify</strong> <span class="mono"><?= esc($token) ?></span></div>
+                <div><strong>Verify</strong> <span class="mono"><?= esc($code) ?></span></div>
               </div>
             </td>
 

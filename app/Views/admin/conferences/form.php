@@ -14,6 +14,12 @@
 
     <label>Slug *</label>
     <input name="slug" value="<?= esc($item['slug'] ?? '') ?>" required>
+    <label>Theme</label>
+    <input name="theme" value="<?= esc($item['theme'] ?? '') ?>" placeholder="Conference theme (optional)">
+
+    <label>Announcement</label>
+    <textarea name="announcement" rows="5" placeholder="Conference announcement (optional)"><?= esc($item['announcement'] ?? '') ?></textarea>
+
 
     <label>Start date</label>
     <input type="date" name="start_date" value="<?= esc($item['start_date'] ?? '') ?>">

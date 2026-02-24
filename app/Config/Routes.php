@@ -56,6 +56,8 @@ $routes->group('author', ['filter' => 'role:author,admin,editor,reviewer'], stat
     $routes->get('certificates/(:segment)/download', 'Author\\CertificatesController::download/$1');
 });
 $routes->get('verify/certificate/(:segment)', 'SiteController::verifyCertificate/$1');
+$routes->get('verify/(:segment)', 'SiteController::verifyCertificate/$1');
+
 
 
 $routes->get('/', 'SiteController::home');

@@ -45,7 +45,7 @@
         /* Outer container constrained to A4 minus safe margins */
         .frame {
             width: 291mm;
-            height: 204mm;
+            height: 195mm;
             border: 2px solid #0B3D91;
             padding: 2mm;
             background: #fff;
@@ -56,7 +56,7 @@
             border: 1px solid #d7e0f2;
             padding: 4mm;
             /* was 5mm */
-            height: 100%;
+            height: 94%;
             position: relative;
             display: flex;
             flex-direction: column;
@@ -377,12 +377,17 @@
                 </div>
 
                 <div class="center awarded">This certificate is hereby awarded to</div>
-                <div class="center"><span class="name"><?= esc($recipient_name ?? 'Author') ?></span></div>
+                <div class="center"><span class="name"><?= esc($authors ?? 'Author') ?></span></div>
 
                 <div class="paperBox">
                     <div class="lbl">Published Journal Article Title</div>
                     <p class="paper">“<?= esc($paper_title ?? '-') ?>”</p>
                 </div>
+
+                <!-- <div class="center" style="margin-top:3mm; font-size:12px; color:#333;">
+                    <strong>Authors:</strong> <?= esc($authors ?? ($recipient_name ?? '')) ?>
+                </div> -->
+
 
                 <?php
                 $pubDate = !empty($published_at) ? date('d M Y', strtotime($published_at)) : '-';
