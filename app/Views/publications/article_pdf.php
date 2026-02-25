@@ -1,73 +1,209 @@
 <?php
-// app/Views/publications/article_pdf.php
-// Inputs:
-// - header_left, header_right, doi, license, received_at, accepted_at, published_at, article_id
-// - title, authors_html, affiliations_html, corresponding_html
-// - body_html (HTML)
+/**
+ * publications/article_pdf.php
+ *
+ * This template renders the FIRST-PAGE JOURNAL FRAME (header, meta, title, authors, abstract card),
+ * and then prints the "main content" (journal content) below it.
+ *
+ * Expected variables:
+ * - $journal_name (string)
+ * - $volume (string|int)
+ * - $issue (string|int)
+ * - $year (string|int)
+ * - $received_at (string, e.g. "12 Jan 2026")
+ * - $accepted_at (string)
+ * - $published_at (string)
+ * - $article_id (string)
+ * - $doi (string)
+ * - $title (string)
+ * - $authors_line (string)  e.g. "Idris Bello1*, Amina Yusuf2, ..."
+ * - $affiliations_html (string) HTML safe lines for affiliations
+ * - $corresponding_html (string) HTML safe corresponding author + ORCID line
+ * - $abstract (string)
+ * - $keywords (string) e.g. "MANET, hybrid optimization, ..."
+ * - $content_html (string) the complex body content (already formatted HTML)
+ */
+
+function h($v){ return esc((string)$v); }
+
+$journal_name = $journal_name ?? 'AIRN Journal of Computing Systems';
+$volume = $volume ?? '—';
+$issue = $issue ?? '—';
+$year = $year ?? date('Y');
+
+$received_at = $received_at ?? '—';
+$accepted_at = $accepted_at ?? '—';
+$published_at = $published_at ?? '—';
+$article_id = $article_id ?? '—';
+$doi = $doi ?? '—';
+
+$title = $title ?? '—';
+$authors_line = $authors_line ?? '';
+$affiliations_html = $affiliations_html ?? '';
+$corresponding_html = $corresponding_html ?? '';
+$abstract = $abstract ?? '';
+$keywords = $keywords ?? '';
+
+$content_html = $content_html ?? ''; // complex body content
 ?>
 <!doctype html>
 <html>
 <head>
   <meta charset="utf-8">
   <style>
-    @page { margin: 18mm 16mm 16mm 16mm; }
-    body { font-family: DejaVu Serif, DejaVu Sans, Arial, sans-serif; font-size: 11.5px; line-height: 1.45; color: #111; }
+    @page { margin: 14mm 14mm 14mm 14mm; }
 
-    .hdr {
-      position: fixed;
-      top: -14mm;
-      left: 0; right: 0;
-      height: 14mm;
-      font-family: DejaVu Sans, Arial, sans-serif;
-      font-size: 9.5px;
-      color: #222;
-      border-bottom: 1px solid #cfd8e3;
-      padding-bottom: 2mm;
+    body{
+      font-family: "Times New Roman", serif;
+      font-size: 12pt;
+      line-height: 1.45;
+      color: #111;
     }
-    .hdr .row1 { display: flex; justify-content: space-between; }
-    .hdr .row2 { margin-top: 1mm; display: flex; justify-content: space-between; }
-    .hdr .mono { font-family: DejaVu Sans Mono, monospace; }
 
-    .metaLine { margin-top: 2mm; font-family: DejaVu Sans, Arial, sans-serif; font-size: 9.5px; color: #222; }
-    h1 { font-size: 18px; margin: 8mm 0 3mm; line-height: 1.25; }
-    .authors { font-family: DejaVu Sans, Arial, sans-serif; font-size: 11px; margin: 0 0 2mm; }
-    .affiliations { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; margin: 0 0 2mm; color: #333; }
-    .corresponding { font-family: DejaVu Sans, Arial, sans-serif; font-size: 10px; margin: 0 0 5mm; color: #333; }
-    h2 { font-size: 13px; margin: 5mm 0 2mm; }
-    .abstract { background: #f4f6f9; border-left: 3px solid #cfd8e3; padding: 3mm; margin: 0 0 4mm; }
-    .kw { margin-top: 2mm; font-size: 10.5px; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #cfd8e3; padding: 2mm; font-size: 10.5px; }
-    .figureCap { font-size: 10px; color: #333; margin: 1mm 0 4mm; }
+    /* Blue header bar */
+    .topbar{
+      background:#0b3b8c;
+      color:#fff;
+      padding:10px 14px;
+      margin:-14mm -14mm 18px -14mm; /* stretch full width */
+    }
+    .topbar .row{
+      width:100%;
+      display:block;
+      clear:both;
+    }
+    .topbar .left{
+      float:left;
+      font-weight:700;
+      font-size:10.5pt;
+      letter-spacing:.2px;
+    }
+    .topbar .right{
+      float:right;
+      font-size:9.5pt;
+      opacity:.95;
+    }
+
+    /* Meta line under header */
+    .meta{
+      font-size:9.5pt;
+      margin: 0 0 10px 0;
+    }
+    .meta b{ font-weight:700; }
+    .meta .line2{ margin-top:2px; }
+
+    /* Title block */
+    .title{
+      text-align:center;
+      font-weight:700;
+      font-size:18pt;
+      margin: 10px 0 8px 0;
+    }
+    .authors{
+      text-align:center;
+      font-size:11pt;
+      margin: 0 0 6px 0;
+    }
+    .affiliations{
+      text-align:center;
+      font-size:9.8pt;
+      margin: 0 0 10px 0;
+    }
+    .affiliations .small{
+      font-size:9.2pt;
+      margin-top:4px;
+    }
+
+    /* Abstract “card” like screenshot */
+    .abstract-card{
+      border:1px solid #cdd8f0;
+      background:#f7f9ff;
+      padding:10px 12px;
+      margin: 8px 0 14px 0;
+    }
+    .abstract-title{
+      font-weight:700;
+      font-size:10.5pt;
+      margin:0 0 6px 0;
+    }
+    .keywords{
+      margin-top:8px;
+      font-size:10pt;
+    }
+    .keywords b{ font-weight:700; }
+
+    /* Body content */
+    .content{
+      margin-top: 4px;
+    }
+    .content h2{
+      font-size:12pt;
+      font-weight:700;
+      margin:14px 0 6px 0;
+    }
+    .content p{
+      margin:0 0 8px 0;
+      text-align:justify;
+    }
+
+    /* Keep tables sane */
+    table{ width:100%; border-collapse:collapse; margin:10px 0; }
+    th, td{ border:1px solid #111; padding:6px; vertical-align:top; }
+
+    /* Prevent weird breaks in title/meta/abstract */
+    .no-break{ page-break-inside: avoid; }
   </style>
 </head>
 <body>
 
-  <div class="hdr">
-    <div class="row1">
-      <div><?= esc($header_left ?? '') ?></div>
-      <div><?= esc($header_right ?? '') ?></div>
+  <div class="topbar">
+    <div class="row">
+      <div class="left"><?= h($journal_name) ?></div>
+      <div class="right">Vol. <?= h($volume) ?> • Issue <?= h($issue) ?> • <?= h($year) ?></div>
     </div>
-    <div class="row2">
-      <div>DOI: <span class="mono"><?= esc($doi ?? '-') ?></span> • Licensed under <?= esc($license ?? 'CC BY 4.0') ?></div>
-      <div class="mono"><?= esc($page_label ?? '') ?></div>
+    <div style="clear:both;"></div>
+  </div>
+
+  <div class="meta no-break">
+    <div>
+      <b>Received:</b> <?= h($received_at) ?>
+      &nbsp;&nbsp; <b>Accepted:</b> <?= h($accepted_at) ?>
+      &nbsp;&nbsp; <b>Published:</b> <?= h($published_at) ?>
+    </div>
+    <div class="line2">
+      <b>Article ID:</b> <?= h($article_id) ?>
+      &nbsp;&nbsp; <b>DOI:</b> <?= h($doi) ?>
     </div>
   </div>
 
-  <div class="metaLine">
-    Received: <?= esc($received_at ?? '-') ?> &nbsp;&nbsp; Accepted: <?= esc($accepted_at ?? '-') ?> &nbsp;&nbsp; Published: <?= esc($published_at ?? '-') ?>
+  <div class="no-break">
+    <div class="title"><?= h($title) ?></div>
+
+    <?php if ($authors_line !== ''): ?>
+      <div class="authors"><?= esc($authors_line) ?></div>
+    <?php endif; ?>
+
+    <?php if ($affiliations_html !== '' || $corresponding_html !== ''): ?>
+      <div class="affiliations">
+        <?php if ($affiliations_html !== ''): ?>
+          <div><?= $affiliations_html ?></div>
+        <?php endif; ?>
+        <?php if ($corresponding_html !== ''): ?>
+          <div class="small"><?= $corresponding_html ?></div>
+        <?php endif; ?>
+      </div>
+    <?php endif; ?>
+
+    <div class="abstract-card">
+      <div class="abstract-title">Abstract</div>
+      <div style="font-size:10.5pt; text-align:justify;"><?= nl2br(esc($abstract)) ?></div>
+      <div class="keywords"><b>Keywords:</b> <?= esc($keywords) ?></div>
+    </div>
   </div>
-  <div class="metaLine">
-    Article ID: <span class="mono"><?= esc($article_id ?? '-') ?></span> &nbsp;&nbsp; DOI: <span class="mono"><?= esc($doi ?? '-') ?></span>
+
+  <div class="content">
+    <?= $content_html ?>
   </div>
-
-  <h1><?= esc($title ?? '') ?></h1>
-
-  <div class="authors"><?= $authors_html ?? '' ?></div>
-  <div class="affiliations"><?= $affiliations_html ?? '' ?></div>
-  <div class="corresponding"><?= $corresponding_html ?? '' ?></div>
-
-  <div><?= $body_html ?? '' ?></div>
 
 </body>
 </html>

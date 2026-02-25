@@ -74,6 +74,7 @@ $routes->get('published', 'SiteController::published');
 $routes->get('published/(:num)', 'SiteController::publication/$1');
 
 $routes->get('download/(:num)', 'SiteController::download/$1');
+$routes->get('camera-ready-template', 'SiteController::cameraReadyTemplate');
 
 $routes->get('about', 'SiteController::about');
 $routes->get('contact', 'SiteController::contact');

@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use CodeIgniter\Exceptions\PageNotFoundException;
+use Dompdf\Dompdf;
 
 class SiteController extends BaseController
 {
@@ -200,5 +201,43 @@ class SiteController extends BaseController
             'submission' => $sub,
             'publication' => $pub,
         ]);
+    }
+
+
+
+    public function cameraReadyTemplate()
+    {
+        $dompdf = new Dompdf();
+        $dompdf->loadHtml(view('publications/article_pdf', [
+            // Fill with a sample dataset so the PDF is a true “approved template”
+            'journal_name' => 'AIRN Journal of Computing Systems',
+            'volume' => '4',
+            'issue' => '1',
+            'year' => '2026',
+            'received_at' => '12 Jan 2026',
+            'accepted_at' => '28 Feb 2026',
+            'published_at' => '10 Mar 2026',
+            'article_id' => 'AIRN-2026-041-002',
+            'doi' => '10.1234/airn.v4i1.002',
+            'title' => 'Hybrid Optimization Techniques for Adaptive Network Routing in MANET Environments',
+            'authors_line' => 'Idris Bello<sup>1*</sup>, Amina Yusuf<sup>2</sup>, Chukwuemeka Okoye<sup>3</sup>',
+            'affiliations_html' =>
+            '<div><sup>1</sup>Department of Computer Science, XYZ University, Nigeria</div>' .
+                '<div><sup>2</sup>Faculty of Engineering, ABC Institute, Ghana</div>' .
+                '<div><sup>3</sup>School of Computing, QRS University, Kenya</div>',
+            'corresponding_html' => '*Corresponding author: idris@xyz.edu &nbsp;&nbsp; ORCID: 0000-0002-XXXX-XXXX',
+            'abstract' => 'This study proposes an advanced hybrid optimization model...',
+            'keywords' => 'MANET, hybrid optimization, adaptive routing, genetic algorithms',
+            // Keep body minimal; this endpoint is a TEMPLATE
+            'content_html' => '<h2>1. Introduction</h2><p>Replace with your full paper content...</p>',
+        ]));
+
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        return $this->response
+            ->setHeader('Content-Type', 'application/pdf')
+            ->setHeader('Content-Disposition', 'attachment; filename="camera_ready_template.pdf"')
+            ->setBody($dompdf->output());
     }
 }
