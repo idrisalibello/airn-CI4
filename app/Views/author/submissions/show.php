@@ -19,6 +19,34 @@
 <?php endif; ?>
 
 <div class="card">
+    <h3 style="margin-top:0;">Payment</h3>
+
+    <?php $ps = (string)($payment_status ?? 'UNPAID'); ?>
+
+    <?php if ($ps === 'PAID'): ?>
+        <div class="pill ok">PAID</div>
+        <div style="margin-top:8px;font-size:13px;color:#666;">
+            Reference: <?= esc((string)($payment['reference'] ?? '')) ?><br>
+            Paid at: <?= esc((string)($payment['paid_at'] ?? '')) ?>
+        </div>
+
+    <?php elseif ($ps === 'PENDING'): ?>
+        <div class="pill">PENDING</div>
+        <p>Payment started but not yet confirmed.</p>
+        <a class="btn" href="/author/submissions/<?= (int)$sub['id'] ?>/pay">
+            Continue Payment
+        </a>
+
+    <?php else: ?>
+        <div class="pill no">UNPAID</div>
+        <p><strong>Warning:</strong> Only PAID submissions will be considered for peer review. Conference submissions without payment will not be processed.</p>
+        <a class="btn" href="/author/submissions/<?= (int)$sub['id'] ?>/pay">
+            Pay Now
+        </a>
+    <?php endif; ?>
+</div>
+
+<div class="card">
   <h3 style="margin-top:0">Timeline</h3>
   <ul class="timeline">
     <?php foreach (($timeline ?? []) as $t): ?>

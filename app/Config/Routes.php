@@ -56,10 +56,13 @@ $routes->group('author', ['filter' => 'role:author,admin,editor,reviewer'], stat
     $routes->get('submissions/(:num)/view/(:num)', 'Author\\SubmissionsController::view/$1/$2');
     $routes->get('certificates', 'Author\\CertificatesController::index');
     $routes->get('certificates/(:segment)/download', 'Author\\CertificatesController::download/$1');
+    $routes->get('submissions/(:num)/pay', 'PaymentsController::initialize/$1');
 });
 $routes->get('verify/certificate/(:segment)', 'SiteController::verifyCertificate/$1');
 $routes->get('verify/(:segment)', 'SiteController::verifyCertificate/$1');
 
+$routes->get('payments/callback', 'PaymentsController::callback');
+$routes->post('payments/webhook', 'PaymentsController::webhook');
 
 
 $routes->get('/', 'SiteController::home');

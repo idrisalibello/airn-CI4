@@ -18,9 +18,23 @@ class SubmissionsController extends BaseController
             ->orderBy('id', 'DESC')
             ->get()->getResultArray();
 
+        $refs = [];
+        foreach ($items as $k => $it) {
+            $items[$k]['payment_status'] = 'UNPAID';
+        }
+
+        $pm = new \App\Models\PaymentModel();
+        foreach ($items as $k => $it) {
+            $latest = $pm->where('submission_id', (int)$it['id'])->orderBy('id', 'DESC')->first();
+            if ($latest && !empty($latest['status'])) {
+                $items[$k]['payment_status'] = (string)$latest['status'];
+            }
+        }
+
         return view('author/submissions/index', [
             'title' => 'My Submissions',
             'items' => $items,
+            'scopeNote' => 'Only PAID manuscripts will be considered for peer review. Conference submissions without payment will not be processed.',
             'flash' => session('flash'),
             'error' => session('error'),
         ]);
@@ -154,10 +168,18 @@ class SubmissionsController extends BaseController
             ->get()->getResultArray();
 
         $timeline = $this->timeline($db, $id, $sub);
+        $pm = new \App\Models\PaymentModel();
+        $payment = $pm->where('submission_id', (int)$id)
+            ->orderBy('id', 'DESC')
+            ->first();
+
+        $payment_status = $payment['status'] ?? 'UNPAID';
 
         return view('author/submissions/show', [
             'title' => 'Submission #' . $id,
             'sub' => $sub,
+            'payment' => $payment,
+            'payment_status' => $payment_status,
             'versions' => $versions,
             'timeline' => $timeline,
             'flash' => session('flash'),
