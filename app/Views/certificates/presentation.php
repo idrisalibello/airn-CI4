@@ -240,7 +240,7 @@ $rightData = is_file($rightPath) ? 'data:image/png;base64,' . base64_encode(file
 <?php if (!empty($conference_theme)): ?>                  <div><strong>Theme</strong> <?= esc($conference_theme) ?></div>                <?php endif; ?>
                 <div><strong>Venue</strong> <?= esc($conference_venue ?? '-') ?></div>
                 <div><strong>Date</strong> <?= esc($confDate) ?></div>
-                <div><strong>Verify</strong> <span class="mono"><?= esc($code) ?></span></div>
+                <div><strong>Verify</strong> <span class="mono"><?= esc($token) ?></span></div>
               </div>
             </td>
 

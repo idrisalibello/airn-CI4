@@ -82,17 +82,15 @@ class CertificatesController extends BaseController
                 'brand_right'      => $brandRight,
                 'recipient_name'   => (string)($user['name'] ?? ''),
                 'paper_title'      => (string)($sub['title'] ?? ''),
-                'authors' => ($sub['authors'] ?? ($user['name'] ?? '')),
+        'authors' => ($sub['authors'] ?? ($user['name'] ?? '')),
                 'conference_name'  => (string)($conf['name'] ?? ''),
                 'conference_theme' => $confTheme,
                 'conference_venue' => (string)($conf['venue'] ?? ''),
                 'start_date'       => (string)($conf['start_date'] ?? ''),
                 'end_date'         => (string)($conf['end_date'] ?? ''),
                 'code'             => (string)($cert['code'] ?? ''),
-                // 'verify_url'       => base_url('verify/' . (string)($cert['code'] ?? '')),
-                // 'verify_short'     => base_url('verify/' . (string)($cert['code'] ?? '')),
-                'verify_url'       => 'verify/' . (string)($cert['code'] ?? ''),
-                'verify_short'     => 'verify/' . (string)($cert['code'] ?? ''),
+                'verify_url'       => base_url('verify/' . (string)($cert['code'] ?? '')),
+                'verify_short'     => base_url('verify/' . (string)($cert['code'] ?? '')),
             ]);
 
             $dompdf = new Dompdf();
@@ -135,10 +133,8 @@ class CertificatesController extends BaseController
             'issue'          => $pub['issue'],
             'pages'          => $pub['pages'],
             'code'           => $cert['code'],
-            // 'verify_url'     => base_url('verify/' . $cert['code']),
-            // 'verify_short'   => base_url('verify/' . $cert['code']),
-            'verify_url'       => 'verify/' . (string)($cert['code'] ?? ''),
-            'verify_short'     => 'verify/' . (string)($cert['code'] ?? ''),
+            'verify_url'     => base_url('verify/' . $cert['code']),
+            'verify_short'   => base_url('verify/' . $cert['code']),
         ]);
 
         $dompdf = new Dompdf();
