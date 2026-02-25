@@ -14,6 +14,19 @@
 <div class="card">
   <h3>For Authors</h3>
   <p class="muted">Submit papers, track review status, receive decision letters.</p>
+
+  <?php $auth = session('auth_user'); ?>
+  <p>
+    <?php if (!$auth): ?>
+      <a class="btn" href="/register">Create Author Account</a>
+      <a class="btn" href="/login">Login</a>
+      <a class="btn" href="/author/submissions/new">Submit Manuscript</a>
+      <span class="muted" style="display:block;margin-top:8px;">Submitting requires login. You will be redirected if you are not signed in.</span>
+    <?php else: ?>
+      <a class="btn" href="/author/submissions/new">Submit Manuscript</a>
+      <a class="btn" href="/author">Go to Dashboard</a>
+    <?php endif; ?>
+  </p>
 </div>
 
 <div class="card">

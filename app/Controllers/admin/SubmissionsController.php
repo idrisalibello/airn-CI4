@@ -116,7 +116,7 @@ class SubmissionsController extends BaseController
             'brand_right'      => $brandRight,
             'recipient_name'   => (string)($user['name'] ?? ''),
             'paper_title'      => (string)($sub['title'] ?? ''),
-        'authors' => ($sub['authors'] ?? ($user['name'] ?? '')),
+            'authors' => ($sub['authors'] ?? ($user['name'] ?? '')),
             'conference_name'  => (string)($conf['name'] ?? ''),
             'conference_theme' => $confTheme,
             'conference_venue' => (string)($conf['venue'] ?? ''),
@@ -214,7 +214,7 @@ class SubmissionsController extends BaseController
             'brand_right'      => $brandRight,
             'recipient_name'   => (string)($user['name'] ?? ''),
             'paper_title'      => (string)($sub['title'] ?? ''),
-        'authors' => ($sub['authors'] ?? ($user['name'] ?? '')),
+            'authors' => ($sub['authors'] ?? ($user['name'] ?? '')),
             'conference_name'  => (string)($conf['name'] ?? ''),
             'conference_venue' => (string)($conf['venue'] ?? ''),
             'start_date'       => (string)($conf['start_date'] ?? ''),
@@ -368,7 +368,9 @@ class SubmissionsController extends BaseController
         $db = \Config\Database::connect();
 
         $sub = $db->table('submissions')->where('id', $id)->get()->getRowArray();
-        if (!$sub) throw PageNotFoundException::forPageNotFound('Submission not found');
+        if (!$sub) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound('Submission not found');
+        }
 
         // Prevent double publish
         if ($db->table('publications')->where('submission_id', $id)->countAllResults() > 0) {
@@ -399,196 +401,239 @@ class SubmissionsController extends BaseController
             return redirect()->to('/admin/submissions/' . $id)->with('error', 'Volume, Issue and Pages are required.');
         }
 
-        $now = date('Y-m-d H:i:s');
-
-        $db->transStart();
-
-        // Create publication
-        $db->table('publications')->insert([
-            'submission_id' => $id,
-            'published_at'  => $now,
-            'volume'        => $volume,
-            'issue'         => $issue,
-            'pages'         => $pages,
-            'doi'           => ($doi !== '' ? $doi : null),
-            'citation_json' => null,
-                    'published_file_path' => null,
-        ]);
-
-        $pubId = (int)$db->insertID();
-
-        // Update submission
-        $db->table('submissions')->where('id', $id)->update([
-            'status'     => 'published',
-            'updated_at' => $now,
-        ]);
-
-        // Issue publication certificate (REQUIRED)
-        $code = 'AIRN-PUB-' . $id . '-' . substr(bin2hex(random_bytes(8)), 0, 8);
-
-        $db->table('certificate_issuances')->insert([
-            'user_id'        => (int)$sub['submitter_user_id'],
-            'type'           => 'publication',
-            'submission_id'  => $id,
-            'publication_id' => $pubId,
-            'code'           => $code,
-            'issued_at'      => $now,
-            'pdf_path'       => null,
-            'meta_json'      => null,
-        ]);
-
-        $certId = (int)$db->insertID();
-
-        // Fetch context (within the transaction so it’s consistent)
-        $pub  = $db->table('publications')->where('id', $pubId)->get()->getRowArray();
-        $user = $db->table('users')->where('id', (int)$sub['submitter_user_id'])->get()->getRowArray();
-
-        if (!$pub || !$user) {
-            $db->transComplete();
-            return redirect()->to('/admin/submissions/' . $id)->with('error', 'Published but certificate context missing.');
-        }
-
-        // FINAL PUBLISHED PDF (camera-ready + system stamping)
-        // Policy:
-        // - Authors submit camera-ready PDF after acceptance.
-        // - System stamps journal header/footer (Vol/Issue/Year, DOI, publication URL, page numbers)
-        // - The stamped output becomes publications.published_file_path
-
+        /**
+         * CAMERA-READY POLICY (HARD GATE):
+         * - Publishing requires an uploaded camera-ready PDF (final author PDF).
+         * - Only PDF is accepted.
+         * - Stamping is applied to the camera-ready PDF to generate the final published copy.
+         */
         $file = $this->request->getFile('camera_ready_pdf');
         if (!$file || !$file->isValid()) {
-            $db->transComplete();
-            return redirect()->to('/admin/submissions/' . $id)->with('error', 'Camera-ready PDF is required for publishing.');
+            return redirect()->to('/admin/submissions/' . $id)
+                ->with('error', 'Camera-ready PDF is required for publishing.');
         }
 
         $extUp = strtolower((string)$file->getClientExtension());
         if ($extUp !== 'pdf') {
-            $db->transComplete();
-            return redirect()->to('/admin/submissions/' . $id)->with('error', 'Camera-ready file must be a PDF.');
+            return redirect()->to('/admin/submissions/' . $id)
+                ->with('error', 'Camera-ready file must be a PDF.');
         }
 
-        if (!class_exists(Fpdi::class)) {
-            $db->transComplete();
-            return redirect()->to('/admin/submissions/' . $id)->with('error', 'PDF stamping library missing. Run: composer require setasign/fpdi-fpdf');
+        // Optional but sensible: reject empty/too-small uploads
+        if (method_exists($file, 'getSize') && (int)$file->getSize() < 1024) {
+            return redirect()->to('/admin/submissions/' . $id)
+                ->with('error', 'Camera-ready PDF looks invalid (file too small). Please upload the final camera-ready PDF.');
         }
 
-        $yearPub = (int)date('Y', strtotime((string)($pub['published_at'] ?? $now)));
+        // Stamping library must exist
+        if (!class_exists(\setasign\Fpdi\Fpdi::class)) {
+            return redirect()->to('/admin/submissions/' . $id)
+                ->with('error', 'PDF stamping library missing. Run: composer require setasign/fpdi-fpdf');
+        }
 
-        $dirCamera = WRITEPATH . 'uploads/camera_ready/' . $yearPub;
-        if (!is_dir($dirCamera)) { @mkdir($dirCamera, 0775, true); }
+        $now = date('Y-m-d H:i:s');
 
-        $dirPublished = WRITEPATH . 'uploads/published/' . $yearPub;
-        if (!is_dir($dirPublished)) { @mkdir($dirPublished, 0775, true); }
+        // ---- Transaction starts ONLY after camera-ready is validated ----
+        $db->transBegin();
 
-        $cameraRel = 'uploads/camera_ready/' . $yearPub . '/camera_ready_' . $id . '_' . date('Ymd_His') . '.pdf';
-        $cameraAbs = WRITEPATH . $cameraRel;
-
-        $publishedFileRel = 'uploads/published/' . $yearPub . '/published_' . $id . '_' . date('Ymd_His') . '.pdf';
-        $publishedAbs = WRITEPATH . $publishedFileRel;
+        $cameraAbs = '';
+        $publishedAbs = '';
+        $cameraRel = '';
+        $publishedFileRel = '';
 
         try {
+            // Create publication
+            $db->table('publications')->insert([
+                'submission_id'       => $id,
+                'published_at'        => $now,
+                'volume'              => $volume,
+                'issue'               => $issue,
+                'pages'               => $pages,
+                'doi'                 => ($doi !== '' ? $doi : null),
+                'citation_json'       => null,
+                'published_file_path' => null,
+            ]);
+
+            $pubId = (int)$db->insertID();
+            if ($pubId <= 0) {
+                throw new \RuntimeException('Failed to create publication record.');
+            }
+
+            // Update submission
+            $db->table('submissions')->where('id', $id)->update([
+                'status'     => 'published',
+                'updated_at' => $now,
+            ]);
+
+            // Issue publication certificate (REQUIRED)
+            $code = 'AIRN-PUB-' . $id . '-' . substr(bin2hex(random_bytes(8)), 0, 8);
+
+            $db->table('certificate_issuances')->insert([
+                'user_id'        => (int)$sub['submitter_user_id'],
+                'type'           => 'publication',
+                'submission_id'  => $id,
+                'publication_id' => $pubId,
+                'code'           => $code,
+                'issued_at'      => $now,
+                'pdf_path'       => null,
+                'meta_json'      => null,
+            ]);
+
+            $certId = (int)$db->insertID();
+            if ($certId <= 0) {
+                throw new \RuntimeException('Failed to create certificate issuance.');
+            }
+
+            // Fetch context (within the transaction so it’s consistent)
+            $pub  = $db->table('publications')->where('id', $pubId)->get()->getRowArray();
+            $user = $db->table('users')->where('id', (int)$sub['submitter_user_id'])->get()->getRowArray();
+
+            if (!$pub || !$user) {
+                throw new \RuntimeException('Certificate context missing.');
+            }
+
+            // FINAL PUBLISHED PDF (camera-ready + system stamping)
+            $yearPub = (int)date('Y', strtotime((string)($pub['published_at'] ?? $now)));
+
+            $dirCamera = WRITEPATH . 'uploads/camera_ready/' . $yearPub;
+            if (!is_dir($dirCamera)) {
+                @mkdir($dirCamera, 0775, true);
+            }
+
+            $dirPublished = WRITEPATH . 'uploads/published/' . $yearPub;
+            if (!is_dir($dirPublished)) {
+                @mkdir($dirPublished, 0775, true);
+            }
+
+            $cameraRel = 'uploads/camera_ready/' . $yearPub . '/camera_ready_' . $id . '_' . date('Ymd_His') . '.pdf';
+            $cameraAbs = WRITEPATH . $cameraRel;
+
+            $publishedFileRel = 'uploads/published/' . $yearPub . '/published_' . $id . '_' . date('Ymd_His') . '.pdf';
+            $publishedAbs = WRITEPATH . $publishedFileRel;
+
+            // Move uploaded camera-ready into storage
             $file->move(dirname($cameraAbs), basename($cameraAbs), true);
 
             $journalName = $this->brandLeft($sub);
             $vol = (string)($pub['volume'] ?? '—');
             $iss = (string)($pub['issue'] ?? '—');
 
-            $doiText = (string)($pub['doi'] ?? '');
-            $doiText = $doiText !== '' ? ('DOI: ' . $doiText) : 'DOI: —';
+            $doiRaw  = (string)($pub['doi'] ?? '');
+            $doiText = $doiRaw !== '' ? $doiRaw : '—';
 
-            $pubUrl = base_url('publication/' . (int)$pubId);
+            $pubUrl = base_url('published/' . (int)$pubId);
 
-            $headerLeft = $journalName . ' • Vol. ' . ($vol !== '' ? $vol : '—') . ' • Issue ' . ($iss !== '' ? $iss : '—') . ' • ' . $yearPub;
+            // Header/footers must match the AIRN sample article style
+            $headerRow1Right  = 'Vol. ' . ($vol !== '' ? $vol : '—') . ' • Issue ' . ($iss !== '' ? $iss : '—') . ' • ' . $yearPub;
+            $headerRow1Center = $journalName . ' ' . $headerRow1Right;
+            $headerRow2Left   = 'DOI: ' . $doiText . ' • Licensed under CC BY 4.0';
+
+            $receivedAt  = (string)($sub['created_at'] ?? '');
+            $acceptedAt  = (string)($sub['decided_at'] ?? ($sub['accepted_at'] ?? ''));
+            $publishedAt = (string)($pub['published_at'] ?? $now);
 
             $this->stampJournalPdf($cameraAbs, $publishedAbs, [
-                'header_left'  => $headerLeft,
-                'header_right' => $doiText,
-                'footer_left'  => $pubUrl,
-                'page_prefix'  => 'Page ',
+                'header_row1_center' => $headerRow1Center,
+                'header_row2_left'   => $headerRow2Left,
+                'footer_left'        => $pubUrl,
+                'page_prefix'        => 'Page ',
+                'doi'                => $doiText,
+                'article_id'         => (string)($pub['article_id'] ?? $pubId),
+                'received_at'        => $receivedAt !== '' ? date('Y-m-d', strtotime($receivedAt)) : '—',
+                'accepted_at'        => $acceptedAt !== '' ? date('Y-m-d', strtotime($acceptedAt)) : '—',
+                'published_at'       => $publishedAt !== '' ? date('Y-m-d', strtotime($publishedAt)) : '—',
             ]);
 
             if (!is_file($publishedAbs) || filesize($publishedAbs) < 1024) {
                 throw new \RuntimeException('Stamped PDF not created.');
             }
+
+            // Persist published path
+            $db->table('publications')->where('id', $pubId)->update([
+                'published_file_path' => $publishedFileRel,
+            ]);
+
+            // Build certificate HTML
+            $publishedAt = (string)($pub['published_at'] ?? $now);
+            $year = (int)date('Y', strtotime($publishedAt));
+
+            $brandRight = 'Vol. ' . (($pub['volume'] ?? '') !== '' ? $pub['volume'] : '—')
+                . ' • Issue ' . (($pub['issue'] ?? '') !== '' ? $pub['issue'] : '—')
+                . ' • ' . $year;
+
+            $verifyUrl = base_url('verify/' . $code);
+
+            $html = view('certificates/publication', [
+                'brand_left'      => $this->brandLeft($sub),
+                'brand_right'     => $brandRight,
+                'recipient_name'  => (string)($user['name'] ?? ''),
+                'paper_title'     => (string)($sub['title'] ?? ''),
+                'authors'         => (string)((($sub['authors'] ?? '') !== '') ? $sub['authors'] : ($user['name'] ?? '')),
+                'published_at'    => $publishedAt,
+                'doi'             => $pub['doi'] ?? null,
+                'volume'          => $pub['volume'] ?? null,
+                'issue'           => $pub['issue'] ?? null,
+                'pages'           => $pub['pages'] ?? null,
+                'code'            => $code,
+                'verify_url'      => $verifyUrl,
+                'verify_short'    => base_url('verify/' . $code),
+            ]);
+
+            // Generate PDF immediately (no lazy generation)
+            $dompdf = new \Dompdf\Dompdf();
+
+            $options = $dompdf->getOptions();
+            if (method_exists($options, 'setIsRemoteEnabled')) {
+                $options->setIsRemoteEnabled(true);
+            }
+            $dompdf->setOptions($options);
+
+            $dompdf->loadHtml($html);
+            $dompdf->setPaper('A4', 'landscape');
+            $dompdf->render();
+
+            // Save PDF
+            $dir = WRITEPATH . 'certificates/' . $year;
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0775, true);
+            }
+
+            $rel = 'certificates/' . $year . '/' . $code . '.pdf';
+            $abs = WRITEPATH . $rel;
+
+            file_put_contents($abs, $dompdf->output());
+
+            $db->table('certificate_issuances')->where('id', $certId)->update([
+                'pdf_path' => $rel,
+            ]);
+
+            // Commit
+            if ($db->transStatus() === false) {
+                throw new \RuntimeException('Transaction failed.');
+            }
+            $db->transCommit();
+
+            return redirect()->to('/admin/submissions/' . $id)->with('flash', 'Published. Certificate issued.');
         } catch (\Throwable $e) {
-            if (is_file($cameraAbs)) { @unlink($cameraAbs); }
-            if (is_file($publishedAbs)) { @unlink($publishedAbs); }
+            // Cleanup files if created
+            if ($cameraAbs && is_file($cameraAbs)) {
+                @unlink($cameraAbs);
+            }
+            if ($publishedAbs && is_file($publishedAbs)) {
+                @unlink($publishedAbs);
+            }
 
-            $db->transComplete();
-            return redirect()->to('/admin/submissions/' . $id)->with('error', 'Publish failed while generating final PDF: ' . $e->getMessage());
+            // Rollback DB state so submission/publication never becomes "published" on failure
+            if ($db->transStatus() !== false) {
+                $db->transRollback();
+            } else {
+                $db->transRollback();
+            }
+
+            return redirect()->to('/admin/submissions/' . $id)
+                ->with('error', 'Publish failed: ' . $e->getMessage());
         }
-
-        // Persist paths
-        $db->table('publications')->where('id', $pubId)->update([
-            'published_file_path' => $publishedFileRel,
-        ]);
-
-
-// Build certificate HTML
-        $publishedAt = (string)($pub['published_at'] ?? $now);
-        $year = (int)date('Y', strtotime($publishedAt));
-
-        $brandRight = 'Vol. ' . (($pub['volume'] ?? '') !== '' ? $pub['volume'] : '—')
-            . ' • Issue ' . (($pub['issue'] ?? '') !== '' ? $pub['issue'] : '—')
-            . ' • ' . $year;
-
-        $verifyUrl = base_url('verify/' . $code);
-
-        $html = view('certificates/publication', [
-            'brand_left'     => $this->brandLeft($sub),
-            'brand_right'    => $brandRight,
-            'recipient_name' => (string)($user['name'] ?? ''),
-            'paper_title'    => (string)($sub['title'] ?? ''),
-            'authors'       => (string)((($sub['authors'] ?? '') !== '') ? $sub['authors'] : ($user['name'] ?? '')),
-            'published_at'   => $publishedAt,
-            'doi'            => $pub['doi'] ?? null,
-            'volume'         => $pub['volume'] ?? null,
-            'issue'          => $pub['issue'] ?? null,
-            'pages'          => $pub['pages'] ?? null,
-            'code'           => $code,
-            'verify_url'     => $verifyUrl,
-            'verify_short'     => base_url('verify/' . $code),
-        ]);
-
-        // Generate PDF immediately (no lazy generation)
-        $dompdf = new \Dompdf\Dompdf();
-
-        // NOTE:
-        // - setIsHtml5ParserEnabled is deprecated in newer dompdf builds -> do NOT call it.
-        // - Remote is only needed if you load external images/fonts via URL.
-        $options = $dompdf->getOptions();
-        if (method_exists($options, 'setIsRemoteEnabled')) {
-            $options->setIsRemoteEnabled(true);
-        }
-        $dompdf->setOptions($options);
-
-        $dompdf->loadHtml($html);
-        $dompdf->setPaper('A4', 'landscape');
-        $dompdf->render();
-
-        // Save PDF
-        $dir = WRITEPATH . 'certificates/' . $year;
-        if (!is_dir($dir)) {
-            @mkdir($dir, 0775, true);
-        }
-
-        $rel = 'certificates/' . $year . '/' . $code . '.pdf';
-        $abs = WRITEPATH . $rel;
-
-        file_put_contents($abs, $dompdf->output());
-
-        $db->table('certificate_issuances')->where('id', $certId)->update([
-            'pdf_path' => $rel,
-        ]);
-
-        $db->transComplete();
-
-        if ($db->transStatus() === false) {
-            return redirect()->to('/admin/submissions/' . $id)->with('error', 'Publish failed.');
-        }
-
-        return redirect()->to('/admin/submissions/' . $id)->with('flash', 'Published. Certificate issued.');
     }
-
     public function certificate(int $id)
     {
         $db = \Config\Database::connect();
@@ -747,36 +792,82 @@ class SubmissionsController extends BaseController
 
             $left  = 10;
             $right = 10;
-            $topY  = 6;
-            $botY  = $size['height'] - 8;
 
-            $headerLeft  = (string)($meta['header_left'] ?? '');
-            $headerRight = (string)($meta['header_right'] ?? '');
+            // Header/footer band positions (in mm units used by FPDI/FPDF)
+            $topYRow1 = 6;
+            $topYRow2 = 10.5;
+            $headerLineY = 15;
+
+            $botY  = $size['height'] - 8;
+            $footerLineY = $size['height'] - 10.5;
+
+            $h1C = (string)($meta['header_row1_center'] ?? '');
+            $h1L = (string)($meta['header_row1_left'] ?? ($meta['header_left'] ?? ''));
+            $h1R = (string)($meta['header_row1_right'] ?? ($meta['header_right'] ?? ''));
+            $h2L = (string)($meta['header_row2_left'] ?? '');
             $footerLeft  = (string)($meta['footer_left'] ?? '');
             $pagePrefix  = (string)($meta['page_prefix'] ?? 'Page ');
 
-            $pdf->SetTextColor(25, 25, 25);
-            $pdf->SetFont('Helvetica', '', 8);
+            $pdf->SetTextColor(0, 0, 0);
+            $pdf->SetFont('Times', '', 9);
 
-            if ($headerLeft !== '' || $headerRight !== '') {
-                $pdf->SetXY($left, $topY);
-                $pdf->Cell($size['width'] - $left - $right, 4, $headerLeft, 0, 0, 'L');
+            // Header row 1
+            if ($h1C !== '') {
+                $pdf->SetXY($left, $topYRow1);
+                $pdf->Cell($size['width'] - $left - $right, 4, $h1C, 0, 0, 'C');
+            } elseif ($h1L !== '' || $h1R !== '') {
+                $pdf->SetXY($left, $topYRow1);
+                $pdf->Cell($size['width'] - $left - $right, 4, $h1L, 0, 0, 'L');
 
-                $pdf->SetXY($left, $topY);
-                $pdf->Cell($size['width'] - $left - $right, 4, $headerRight, 0, 0, 'R');
+                $pdf->SetXY($left, $topYRow1);
+                $pdf->Cell($size['width'] - $left - $right, 4, $h1R, 0, 0, 'R');
             }
 
+            // Header row 2 (left) and Page label (right)
+            $pageTxt = $pagePrefix . $pageNo . ' of ' . $pageCount;
+
+            $pdf->SetXY($left, $topYRow2);
+            $pdf->Cell($size['width'] - $left - $right, 4, $h2L, 0, 0, 'L');
+
+            $pdf->SetXY($left, $topYRow2);
+            $pdf->Cell($size['width'] - $left - $right, 4, $pageTxt, 0, 0, 'R');
+
+            // Thin separator under header
+            $pdf->Line($left, $headerLineY, $size['width'] - $right, $headerLineY);
+
+            // Meta lines on page 1 (matches sample article structure)
+            if ($pageNo === 1) {
+                $receivedAt  = (string)($meta['received_at'] ?? '—');
+                $acceptedAt  = (string)($meta['accepted_at'] ?? '—');
+                $publishedAt = (string)($meta['published_at'] ?? '—');
+                $articleId   = (string)($meta['article_id'] ?? '—');
+                $doi         = (string)($meta['doi'] ?? '—');
+
+                $pdf->SetFont('Times', '', 9);
+                $metaY1 = 18;
+                $metaY2 = 22;
+
+                $line1 = 'Received: ' . $receivedAt . '   Accepted: ' . $acceptedAt . '   Published: ' . $publishedAt;
+                $line2 = 'Article ID: ' . $articleId . '   DOI: ' . $doi;
+
+                $pdf->SetXY($left, $metaY1);
+                $pdf->MultiCell($size['width'] - $left - $right, 4, $line1, 0, 'L');
+
+                $pdf->SetXY($left, $metaY2);
+                $pdf->MultiCell($size['width'] - $left - $right, 4, $line2, 0, 'L');
+            }
+
+            // Footer
             if (strlen($footerLeft) > 90) {
                 $footerLeft = substr($footerLeft, 0, 87) . '...';
             }
 
-            $pageTxt = $pagePrefix . $pageNo . ' of ' . $pageCount;
+            // Thin separator above footer
+            $pdf->Line($left, $footerLineY, $size['width'] - $right, $footerLineY);
 
+            $pdf->SetFont('Times', '', 9);
             $pdf->SetXY($left, $botY);
             $pdf->Cell($size['width'] - $left - $right, 4, $footerLeft, 0, 0, 'L');
-
-            $pdf->SetXY($left, $botY);
-            $pdf->Cell($size['width'] - $left - $right, 4, $pageTxt, 0, 0, 'R');
         }
 
         $pdf->Output($dstAbs, 'F');

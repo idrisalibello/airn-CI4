@@ -8,7 +8,14 @@ class UserRoleModel extends Model
 {
     protected $table = 'user_roles';
     protected $returnType = 'array';
+    protected $primaryKey = 'user_id';
+    protected $useAutoIncrement = false;
 
+    protected $allowedFields = [
+        'user_id',
+        'role_id',
+        'created_at',
+    ];
     private static ?string $roleKeyColumn = null;
 
     private function detectRoleKeyColumn(): string
@@ -48,5 +55,17 @@ class UserRoleModel extends Model
             ->getResultArray();
 
         return array_map(static fn($r) => $r['role_key'], $rows);
+    }
+
+    public function getRoleIdByKey(string $key): ?int
+    {
+        $row = db_connect()
+            ->table('roles')
+            ->select('id')
+            ->where('`key`', $key)
+            ->get()
+            ->getRowArray();
+
+        return isset($row['id']) ? (int) $row['id'] : null;
     }
 }

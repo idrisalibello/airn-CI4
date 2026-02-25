@@ -20,6 +20,7 @@ button{padding:10px 14px}
 <?php endif; ?>
 
 <form method="post" action="/login">
+<?= csrf_field() ?>
 <label>Email</label>
 <input type="email" name="email" required>
 
@@ -28,6 +29,8 @@ button{padding:10px 14px}
 
 <button type="submit">Login</button>
 </form>
+
+<p style="margin-top:12px;">No account yet? <a href="/register">Create author account</a></p>
 </div>
 </body>
 </html>

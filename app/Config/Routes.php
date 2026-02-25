@@ -33,6 +33,8 @@ $routes->setAutoRoute(false);
 
 $routes->get('login', [AuthController::class, 'loginForm']);
 $routes->post('login', [AuthController::class, 'login']);
+$routes->get('register', [AuthController::class, 'registerForm']);
+$routes->post('register', [AuthController::class, 'register']);
 $routes->get('logout', [AuthController::class, 'logout']);
 
 $routes->get('dashboard', 'WorkspaceController::index', ['filter' => 'role:author,admin,editor,reviewer']);

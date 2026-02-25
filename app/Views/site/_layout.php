@@ -75,6 +75,7 @@
             <a href="/dashboard">Dashboard</a>
             <a href="/logout">Logout</a>
         <?php else: ?>
+            <a href="/register">Register</a>
             <a href="/login">Login</a>
         <?php endif; ?>
 
