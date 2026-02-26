@@ -1,163 +1,217 @@
-<?php
-// admin/submissions/show.php
-// Expected variables (common patterns in your codebase):
-// $sub (submission row array)
-// $decisions (array of decisions) optional
-// $journal (journal row) optional
-// $publication (publication row) optional
-// If your controller names differ, keep this view and just align the variable names in controller.
-
-function h($v)
-{
-  return esc((string)$v);
-}
-
-$sub = $sub ?? [];
-$decisions = $decisions ?? [];
-$publication = $publication ?? null;
-
-$status = (string)($sub['status'] ?? '—');
-$title  = (string)($sub['title'] ?? '—');
-$type   = (string)($sub['type'] ?? 'journal');
-$createdAt = (string)($sub['created_at'] ?? '');
-$updatedAt = (string)($sub['updated_at'] ?? '');
-
-$manuscriptPath = (string)($sub['manuscript_path'] ?? $sub['file_path'] ?? '');
-$manuscriptUrl  = $manuscriptPath !== '' ? base_url('writable/' . ltrim($manuscriptPath, '/')) : '';
-
-$flash = session()->getFlashdata('flash');
-$error = session()->getFlashdata('error');
-?>
 <?= $this->extend('admin/_layout') ?>
 <?= $this->section('content') ?>
 
-<h2>Submission #<?= h($sub['id'] ?? '') ?></h2>
+<?php
+  /**
+   * Admin Submission Show
+   * Variables passed by App\Controllers\Admin\SubmissionsController::show():
+   * - $sub (array)
+   * - $versions (array)
+   * - $publication (array|null)
+   * - $decision (array|null)
+   * - $certificate (array|null)
+   * - $presentation_certificate (array|null)
+   * - $flash (string|null)
+   * - $error (string|null)
+   */
 
-<?php if ($error): ?>
-  <div class="card err" style="margin-bottom:12px;"><?= esc($error) ?></div>
-<?php endif; ?>
-<?php if ($flash): ?>
-  <div class="card ok" style="margin-bottom:12px;"><?= esc($flash) ?></div>
-<?php endif; ?>
+  $subId = (int)($sub['id'] ?? 0);
 
-<div class="card" style="margin-bottom:14px;">
-  <div style="display:flex; gap:18px; flex-wrap:wrap;">
-    <div style="min-width:260px;">
-      <div><strong>Title:</strong> <?= h($title) ?></div>
-      <div><strong>Type:</strong> <?= h($type) ?></div>
-      <div><strong>Status:</strong> <?= h($status) ?></div>
+  $typeRaw   = $sub['type'] ?? '';
+  $statusRaw = $sub['status'] ?? '';
+  $type   = is_string($typeRaw) ? $typeRaw : '';
+  $status = is_string($statusRaw) ? $statusRaw : '';
+
+  $headline = trim($type . ' • ' . $status, " \t\n\r\0\x0B•");
+
+  $dec = $decision ?? null;
+  $decText = (is_array($dec) && isset($dec['decision'])) ? (string)$dec['decision'] : '';
+
+  // Gate: accepted by status OR latest decision
+  $isAccepted = ($status === 'accepted') || ($decText === 'accept');
+
+  $presCert = $presentation_certificate ?? null;
+?>
+
+<div class="card">
+  <div class="row" style="justify-content:space-between; align-items:center;">
+    <div>
+      <h2 style="margin:0;">Submission #<?= $subId ?></h2>
+      <p class="muted" style="margin:6px 0 0;"><?= esc($headline !== '' ? $headline : '-') ?></p>
     </div>
-    <div style="min-width:260px;">
-      <div><strong>Created:</strong> <?= h($createdAt) ?></div>
-      <div><strong>Updated:</strong> <?= h($updatedAt) ?></div>
-      <?php if (!empty($sub['submitter_user_id'])): ?>
-        <div><strong>Submitter User ID:</strong> <?= h($sub['submitter_user_id']) ?></div>
-      <?php endif; ?>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <a class="btn" href="<?= site_url('admin/submissions') ?>">Back</a>
     </div>
   </div>
 
-  <?php if (!empty($sub['abstract'])): ?>
-    <hr style="margin:14px 0;">
-    <div><strong>Abstract</strong></div>
-    <div style="white-space:pre-wrap;"><?= esc((string)$sub['abstract']) ?></div>
+  <?php if (!empty($flash)): ?>
+    <div class="card flash" style="margin-top:14px;"><?= esc((string)$flash) ?></div>
+  <?php endif; ?>
+  <?php if (!empty($error)): ?>
+    <div class="card err" style="margin-top:14px;"><?= esc((string)$error) ?></div>
   <?php endif; ?>
 
-  <hr style="margin:14px 0;">
-  <div>
-    <strong>Manuscript:</strong>
-    <?php if ($manuscriptPath !== ''): ?>
-      <a href="<?= base_url('admin/submissions/' . (int)$sub['id'] . '/download') ?>">Download</a>
-      <span style="color:#777;">(stored: <?= h($manuscriptPath) ?>)</span>
-    <?php else: ?>
-      <span style="color:#b00;">Not uploaded</span>
-    <?php endif; ?>
-  </div>
-</div>
+  <hr>
 
-<?php if (!empty($decisions)): ?>
-  <div class="card" style="margin-bottom:14px;">
-    <h3 style="margin-top:0;">Decisions</h3>
-    <table style="width:100%; border-collapse:collapse;">
+  <h3>Versions</h3>
+  <?php if (empty($versions) || !is_array($versions)): ?>
+    <p class="muted">No versions.</p>
+  <?php else: ?>
+    <table>
       <thead>
         <tr>
-          <th style="text-align:left; border-bottom:1px solid #ddd; padding:8px;">Date</th>
-          <th style="text-align:left; border-bottom:1px solid #ddd; padding:8px;">Decision</th>
-          <th style="text-align:left; border-bottom:1px solid #ddd; padding:8px;">Note</th>
+          <th style="width:120px;">Version</th>
+          <th>File</th>
+          <th style="width:220px;"></th>
         </tr>
       </thead>
       <tbody>
-        <?php foreach ($decisions as $d): ?>
+        <?php foreach ($versions as $v): ?>
+          <?php
+            $vId = (int)($v['id'] ?? 0);
+            $vNo = (int)($v['version_no'] ?? 0);
+
+            $mpRaw = $v['manuscript_path'] ?? '';
+            $mp = is_string($mpRaw) ? $mpRaw : '';
+            $ext = $mp !== '' ? strtolower((string)pathinfo($mp, PATHINFO_EXTENSION)) : '';
+          ?>
           <tr>
-            <td style="padding:8px; border-bottom:1px solid #f0f0f0;"><?= h($d['created_at'] ?? '') ?></td>
-            <td style="padding:8px; border-bottom:1px solid #f0f0f0;"><?= h($d['decision'] ?? '') ?></td>
-            <td style="padding:8px; border-bottom:1px solid #f0f0f0;"><?= h($d['note'] ?? '') ?></td>
+            <td>v<?= $vNo ?></td>
+            <td><code><?= esc($mp !== '' ? $mp : '-') ?></code></td>
+            <td>
+              <?php if ($ext === 'pdf'): ?>
+                <a class="btn" target="_blank" href="<?= site_url("admin/submissions/{$subId}/view/{$vId}") ?>">View PDF</a>
+              <?php endif; ?>
+              <a class="btn" href="<?= site_url("admin/submissions/{$subId}/download/{$vId}") ?>">Download</a>
+            </td>
           </tr>
         <?php endforeach; ?>
       </tbody>
     </table>
-  </div>
-<?php endif; ?>
+  <?php endif; ?>
 
-<div class="card" style="margin-bottom:14px;">
-  <h3 style="margin-top:0;">Publish (Journal)</h3>
+  <hr>
 
-  <div class="card warn" style="margin:10px 0; padding:12px;">
-    <strong>Camera-ready PDF is mandatory.</strong>
-    <div style="margin-top:6px;">
-      Upload the <b>final author-formatted PDF</b> (A4, portrait). Do not include journal header/page numbers/DOI — the system stamps them during publishing.
-    </div>
-    <p style="margin:6px 0 0; font-size:12px;">
-      <a href="<?= site_url('camera-ready-template') ?>" target="_blank">Download Camera-Ready PDF Template</a>
+  <h3>Decision</h3>
+
+  <?php if (!empty($decision) && is_array($decision)): ?>
+    <p>
+      <strong>Latest:</strong> <?= esc((string)$decision['decision']) ?>
+      <span class="muted">at <?= esc((string)($decision['created_at'] ?? '-')) ?></span>
     </p>
-    <ul style="margin:8px 0 0 18px;">
-      <li>PDF only</li>
-      <li>Must open without password</li>
-      <li>All figures/tables embedded</li>
-    </ul>
-  </div>
-
-  <form method="post"
-    action="<?= base_url('admin/submissions/' . (int)($sub['id'] ?? 0) . '/publish') ?>"
-    enctype="multipart/form-data">
-
-    <?= csrf_field() ?>
-
-    <div style="display:flex; gap:12px; flex-wrap:wrap;">
-      <div style="min-width:180px;">
-        <label><strong>Volume</strong></label><br>
-        <input type="text" name="volume" value="<?= h(old('volume')) ?>" required style="width:100%; padding:8px;">
+    <?php if (!empty($decision['letter_text'])): ?>
+      <div class="card" style="margin-top:10px;">
+        <div class="muted">Letter</div>
+        <div><?= nl2br(esc((string)$decision['letter_text'])) ?></div>
       </div>
+    <?php endif; ?>
+  <?php else: ?>
+    <p class="muted">No decision recorded yet.</p>
+  <?php endif; ?>
 
-      <div style="min-width:180px;">
-        <label><strong>Issue</strong></label><br>
-        <input type="text" name="issue" value="<?= h(old('issue')) ?>" required style="width:100%; padding:8px;">
-      </div>
+  <?php if (empty($publication)): ?>
+    <form method="post" action="<?= site_url("admin/submissions/{$subId}/decide") ?>" style="margin-top:12px;">
+      <?= csrf_field() ?>
+      <label>Decision</label>
+      <select name="decision" required>
+        <option value="">Select…</option>
+        <option value="accept">Accept</option>
+        <option value="revise">Request Revision</option>
+        <option value="reject">Reject</option>
+      </select>
 
-      <div style="min-width:220px;">
-        <label><strong>Pages</strong> <span style="color:#777;">(e.g., 12-27)</span></label><br>
-        <input type="text" name="pages" value="<?= h(old('pages')) ?>" required style="width:100%; padding:8px;">
-      </div>
+      <label>Decision letter (optional)</label>
+      <textarea name="letter_text" rows="4" placeholder="Message to author (optional)"></textarea>
 
-      <div style="min-width:260px;">
-        <label><strong>DOI</strong> <span style="color:#777;">(optional if you assign later)</span></label><br>
-        <input type="text" name="doi" value="<?= h(old('doi')) ?>" style="width:100%; padding:8px;">
-      </div>
+      <button class="btn" type="submit">Save Decision</button>
+    </form>
+  <?php else: ?>
+    <p class="muted">Decision is locked after publication.</p>
+  <?php endif; ?>
+
+  <hr>
+
+  <?php if (!empty($publication) && is_array($publication)): ?>
+    <h3>Publication</h3>
+    <p><strong>Published:</strong> <?= esc((string)($publication['published_at'] ?? '-')) ?></p>
+    <p><strong>DOI:</strong> <?= esc((string)($publication['doi'] ?? '-')) ?></p>
+    <p><strong>Vol/Issue:</strong> <?= esc((string)($publication['volume'] ?? '-')) ?> / <?= esc((string)($publication['issue'] ?? '-')) ?></p>
+    <p><strong>Pages:</strong> <?= esc((string)($publication['pages'] ?? '-')) ?></p>
+
+    <div style="display:flex; gap:8px; align-items:center; margin-top:10px; flex-wrap:wrap;">
+      <a class="btn" href="<?= site_url("admin/submissions/{$subId}/certificate") ?>">Download Certificate</a>
+      <?php if (!empty($certificate) && is_array($certificate)): ?>
+        <a class="btn" target="_blank" href="<?= site_url('verify/certificate/'.(string)$certificate['code']) ?>">Verify Link</a>
+      <?php endif; ?>
+      <a class="btn" href="<?= site_url('download/'.$subId) ?>">Download Published PDF</a>
     </div>
 
-    <div style="margin-top:12px;">
-      <label for="camera_ready_pdf"><strong>Camera-ready PDF (required)</strong></label><br>
-      <input type="file"
-        name="camera_ready_pdf"
-        id="camera_ready_pdf"
-        accept="application/pdf"
-        required>
-    </div>
+  <?php else: ?>
 
-    <div style="margin-top:14px;">
-      <button type="submit" class="btn btn-primary">Publish Now</button>
-      <a href="<?= base_url('admin/submissions') ?>" class="btn">Back</a>
-    </div>
-  </form>
+    <?php if ($type === 'conference'): ?>
+      <h3>Presentation Certificate</h3>
+
+      <?php if (!empty($presCert) && is_array($presCert)): ?>
+        <div style="display:flex; gap:8px; align-items:center; margin-top:10px; flex-wrap:wrap;">
+          <a class="btn" href="<?= site_url("admin/submissions/{$subId}/presentation-certificate") ?>">Download Presentation Certificate</a>
+          <a class="btn" target="_blank" href="<?= site_url('verify/certificate/'.(string)$presCert['code']) ?>">Verify Link</a>
+        </div>
+      <?php else: ?>
+        <?php if (!$isAccepted): ?>
+          <div class="card err" style="margin:10px 0;">
+            Issuing is disabled until the submission is <strong>accepted</strong>.
+          </div>
+        <?php endif; ?>
+
+        <form method="post" action="<?= site_url("admin/submissions/{$subId}/present") ?>" style="margin-top:10px;">
+          <?= csrf_field() ?>
+          <button class="btn" type="submit" <?= $isAccepted ? '' : 'disabled' ?>>Mark as Presented &amp; Issue Certificate</button>
+        </form>
+      <?php endif; ?>
+
+    <?php else: ?>
+      <h3>Publish</h3>
+
+      <?php if (!$isAccepted): ?>
+        <div class="card err" style="margin:10px 0;">
+          Publishing is disabled until the submission is <strong>accepted</strong>.
+        </div>
+      <?php endif; ?>
+
+      <div class="card" style="margin:10px 0;">
+        <div class="muted" style="margin-bottom:6px;">Camera-ready PDF</div>
+        <div style="font-size:13px; line-height:1.45;">
+          Admin uploads the <strong>final formatted PDF</strong> received from the author/editorial process.
+          Publishing will apply journal stamping and save the final published copy.
+        </div>
+      </div>
+
+      <form method="post" action="<?= site_url("admin/submissions/{$subId}/publish") ?>" enctype="multipart/form-data">
+        <?= csrf_field() ?>
+
+        <label>Volume</label>
+        <input name="volume" placeholder="e.g. 1" required>
+
+        <label>Issue</label>
+        <input name="issue" placeholder="e.g. 2" required>
+
+        <label>Pages</label>
+        <input name="pages" placeholder="e.g. 12-19" required>
+
+        <label>DOI</label>
+        <input name="doi" placeholder="optional">
+
+        <label>Camera-Ready PDF</label>
+        <input type="file" name="camera_ready_pdf" accept="application/pdf" required>
+        <p style="margin:6px 0 0; font-size:12px; color:#444;">
+          Upload the final PDF (content/diagrams/equations). Publishing will stamp header/footer/DOI/page numbers.
+        </p>
+
+        <button class="btn" type="submit" <?= $isAccepted ? '' : 'disabled' ?>>Publish &amp; Issue Certificate</button>
+      </form>
+    <?php endif; ?>
+
+  <?php endif; ?>
 </div>
 
 <?= $this->endSection() ?>

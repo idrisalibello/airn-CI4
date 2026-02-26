@@ -402,10 +402,11 @@ class SubmissionsController extends BaseController
         }
 
         /**
-         * CAMERA-READY POLICY (HARD GATE):
+         * CAMERA-READY POLICY:
          * - Publishing requires an uploaded camera-ready PDF (final author PDF).
          * - Only PDF is accepted.
-         * - Stamping is applied to the camera-ready PDF to generate the final published copy.
+         * - System generates a FRONT-MATTER page (header/meta/title/authors/abstract/keywords),
+         *   then appends the (system-stamped) camera-ready PDF to produce the final published copy.
          */
         $file = $this->request->getFile('camera_ready_pdf');
         if (!$file || !$file->isValid()) {
@@ -425,10 +426,10 @@ class SubmissionsController extends BaseController
                 ->with('error', 'Camera-ready PDF looks invalid (file too small). Please upload the final camera-ready PDF.');
         }
 
-        // Stamping library must exist
+        // Stamping/merge library must exist
         if (!class_exists(\setasign\Fpdi\Fpdi::class)) {
             return redirect()->to('/admin/submissions/' . $id)
-                ->with('error', 'PDF stamping library missing. Run: composer require setasign/fpdi-fpdf');
+                ->with('error', 'PDF library missing. Run: composer require setasign/fpdi-fpdf');
         }
 
         $now = date('Y-m-d H:i:s');
@@ -438,20 +439,25 @@ class SubmissionsController extends BaseController
 
         $cameraAbs = '';
         $publishedAbs = '';
+        $stampedAbs = '';
+        $frontAbs = '';
         $cameraRel = '';
         $publishedFileRel = '';
+        $stampedRel = '';
+        $frontRel = '';
 
         try {
             // Create publication
             $db->table('publications')->insert([
-                'submission_id'       => $id,
-                'published_at'        => $now,
-                'volume'              => $volume,
-                'issue'               => $issue,
-                'pages'               => $pages,
-                'doi'                 => ($doi !== '' ? $doi : null),
-                'citation_json'       => null,
-                'published_file_path' => null,
+                'submission_id'         => $id,
+                'published_at'          => $now,
+                'volume'                => $volume,
+                'issue'                 => $issue,
+                'pages'                 => $pages,
+                'doi'                   => ($doi !== '' ? $doi : null),
+                'citation_json'         => null,
+                'published_file_path'   => null,
+                'camera_ready_file_path'=> null,
             ]);
 
             $pubId = (int)$db->insertID();
@@ -492,7 +498,6 @@ class SubmissionsController extends BaseController
                 throw new \RuntimeException('Certificate context missing.');
             }
 
-            // FINAL PUBLISHED PDF (camera-ready + system stamping)
             $yearPub = (int)date('Y', strtotime((string)($pub['published_at'] ?? $now)));
 
             $dirCamera = WRITEPATH . 'uploads/camera_ready/' . $yearPub;
@@ -505,15 +510,17 @@ class SubmissionsController extends BaseController
                 @mkdir($dirPublished, 0775, true);
             }
 
+            // Store camera-ready
             $cameraRel = 'uploads/camera_ready/' . $yearPub . '/camera_ready_' . $id . '_' . date('Ymd_His') . '.pdf';
             $cameraAbs = WRITEPATH . $cameraRel;
-
-            $publishedFileRel = 'uploads/published/' . $yearPub . '/published_' . $id . '_' . date('Ymd_His') . '.pdf';
-            $publishedAbs = WRITEPATH . $publishedFileRel;
-
-            // Move uploaded camera-ready into storage
             $file->move(dirname($cameraAbs), basename($cameraAbs), true);
 
+            // Persist camera-ready path
+            $db->table('publications')->where('id', $pubId)->update([
+                'camera_ready_file_path' => $cameraRel,
+            ]);
+
+            // Build stamping meta (applies to the camera-ready pages ONLY)
             $journalName = $this->brandLeft($sub);
             $vol = (string)($pub['volume'] ?? '—');
             $iss = (string)($pub['issue'] ?? '—');
@@ -523,29 +530,89 @@ class SubmissionsController extends BaseController
 
             $pubUrl = base_url('published/' . (int)$pubId);
 
-            // Header/footers must match the AIRN sample article style
             $headerRow1Right  = 'Vol. ' . ($vol !== '' ? $vol : '—') . ' • Issue ' . ($iss !== '' ? $iss : '—') . ' • ' . $yearPub;
             $headerRow1Center = $journalName . ' ' . $headerRow1Right;
             $headerRow2Left   = 'DOI: ' . $doiText . ' • Licensed under CC BY 4.0';
 
             $receivedAt  = (string)($sub['created_at'] ?? '');
-            $acceptedAt  = (string)($sub['decided_at'] ?? ($sub['accepted_at'] ?? ''));
+            $acceptedAt  = (!empty($latestDecision) && (string)($latestDecision['decision'] ?? '') === 'accept')
+                ? (string)($latestDecision['created_at'] ?? '')
+                : '';
             $publishedAt = (string)($pub['published_at'] ?? $now);
 
-            $this->stampJournalPdf($cameraAbs, $publishedAbs, [
+            // Stamp camera-ready into a temp stamped PDF
+            $stampedRel = 'uploads/published/' . $yearPub . '/stamped_' . $id . '_' . date('Ymd_His') . '.pdf';
+            $stampedAbs = WRITEPATH . $stampedRel;
+
+            $this->stampJournalPdf($cameraAbs, $stampedAbs, [
                 'header_row1_center' => $headerRow1Center,
                 'header_row2_left'   => $headerRow2Left,
                 'footer_left'        => $pubUrl,
                 'page_prefix'        => 'Page ',
                 'doi'                => $doiText,
-                'article_id'         => (string)($pub['article_id'] ?? $pubId),
+                'article_id'         => (string)$pubId,
                 'received_at'        => $receivedAt !== '' ? date('Y-m-d', strtotime($receivedAt)) : '—',
                 'accepted_at'        => $acceptedAt !== '' ? date('Y-m-d', strtotime($acceptedAt)) : '—',
                 'published_at'       => $publishedAt !== '' ? date('Y-m-d', strtotime($publishedAt)) : '—',
             ]);
 
+            if (!is_file($stampedAbs) || filesize($stampedAbs) < 1024) {
+                throw new \RuntimeException('Stamped camera-ready PDF not created.');
+            }
+
+            // Generate FRONT-MATTER page (Dompdf)
+            $authorsLine = trim((string)($sub['authors'] ?? ''));
+            if ($authorsLine !== '') {
+                // common UX: authors separated by semicolons in the form
+                $authorsLine = preg_replace('/\s*;\s*/', ', ', $authorsLine);
+            } else {
+                $authorsLine = (string)($user['name'] ?? '');
+            }
+
+            $frontHtml = view('publications/article_pdf', [
+                'journal_name'   => $journalName,
+                'volume'         => $vol !== '' ? $vol : '—',
+                'issue'          => $iss !== '' ? $iss : '—',
+                'year'           => $yearPub,
+                'received_at'    => $receivedAt !== '' ? date('Y-m-d', strtotime($receivedAt)) : '—',
+                'accepted_at'    => $acceptedAt !== '' ? date('Y-m-d', strtotime($acceptedAt)) : '—',
+                'published_at'   => $publishedAt !== '' ? date('Y-m-d', strtotime($publishedAt)) : '—',
+                'article_id'     => (string)$pubId,
+                'doi'            => $doiText,
+                'title'          => (string)($sub['title'] ?? '—'),
+                'authors_line'   => $authorsLine,
+                'abstract'       => (string)($sub['abstract'] ?? ''),
+                'keywords'       => (string)($sub['keywords'] ?? ''),
+            ]);
+
+            $dompdfFront = new \Dompdf\Dompdf();
+            $optionsFront = $dompdfFront->getOptions();
+            if (method_exists($optionsFront, 'setIsRemoteEnabled')) {
+                $optionsFront->setIsRemoteEnabled(true);
+            }
+            $dompdfFront->setOptions($optionsFront);
+
+            $dompdfFront->loadHtml($frontHtml);
+            $dompdfFront->setPaper('A4', 'portrait');
+            $dompdfFront->render();
+
+            $frontRel = 'uploads/published/' . $yearPub . '/front_' . $id . '_' . date('Ymd_His') . '.pdf';
+            $frontAbs = WRITEPATH . $frontRel;
+
+            file_put_contents($frontAbs, $dompdfFront->output());
+
+            if (!is_file($frontAbs) || filesize($frontAbs) < 1024) {
+                throw new \RuntimeException('Front-matter PDF not created.');
+            }
+
+            // Merge: front-matter + stamped camera-ready => final published
+            $publishedFileRel = 'uploads/published/' . $yearPub . '/published_' . $id . '_' . date('Ymd_His') . '.pdf';
+            $publishedAbs = WRITEPATH . $publishedFileRel;
+
+            $this->mergePdfFiles([$frontAbs, $stampedAbs], $publishedAbs);
+
             if (!is_file($publishedAbs) || filesize($publishedAbs) < 1024) {
-                throw new \RuntimeException('Stamped PDF not created.');
+                throw new \RuntimeException('Final merged PDF not created.');
             }
 
             // Persist published path
@@ -553,7 +620,7 @@ class SubmissionsController extends BaseController
                 'published_file_path' => $publishedFileRel,
             ]);
 
-            // Build certificate HTML
+            // Build certificate HTML (keep intact)
             $publishedAt = (string)($pub['published_at'] ?? $now);
             $year = (int)date('Y', strtotime($publishedAt));
 
@@ -613,22 +680,32 @@ class SubmissionsController extends BaseController
             }
             $db->transCommit();
 
+            // Cleanup temporary PDFs created inside published folder (optional)
+            if ($stampedAbs && is_file($stampedAbs)) {
+                @unlink($stampedAbs);
+            }
+            if ($frontAbs && is_file($frontAbs)) {
+                @unlink($frontAbs);
+            }
+
             return redirect()->to('/admin/submissions/' . $id)->with('flash', 'Published. Certificate issued.');
         } catch (\Throwable $e) {
             // Cleanup files if created
             if ($cameraAbs && is_file($cameraAbs)) {
                 @unlink($cameraAbs);
             }
+            if ($stampedAbs && is_file($stampedAbs)) {
+                @unlink($stampedAbs);
+            }
+            if ($frontAbs && is_file($frontAbs)) {
+                @unlink($frontAbs);
+            }
             if ($publishedAbs && is_file($publishedAbs)) {
                 @unlink($publishedAbs);
             }
 
             // Rollback DB state so submission/publication never becomes "published" on failure
-            if ($db->transStatus() !== false) {
-                $db->transRollback();
-            } else {
-                $db->transRollback();
-            }
+            $db->transRollback();
 
             return redirect()->to('/admin/submissions/' . $id)
                 ->with('error', 'Publish failed: ' . $e->getMessage());
@@ -872,6 +949,42 @@ class SubmissionsController extends BaseController
 
         $pdf->Output($dstAbs, 'F');
     }
+
+    /**
+     * Merge multiple PDFs into a single PDF (in the given order).
+     * Uses FPDI to import every page from each source PDF.
+     *
+     * @param string[] $srcAbsList absolute file paths
+     */
+    function mergePdfFiles(array $srcAbsList, string $dstAbs): void
+    {
+        $pdf = new Fpdi();
+
+        foreach ($srcAbsList as $srcAbs) {
+            if (!$srcAbs || !is_file($srcAbs)) {
+                throw new \RuntimeException('Missing PDF to merge: ' . (string)$srcAbs);
+            }
+
+            $pageCount = $pdf->setSourceFile($srcAbs);
+
+            for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
+                $tplId = $pdf->importPage($pageNo);
+                $size  = $pdf->getTemplateSize($tplId);
+
+                $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
+                $pdf->useTemplate($tplId);
+            }
+        }
+
+        // Ensure destination directory exists
+        $dstDir = dirname($dstAbs);
+        if (!is_dir($dstDir)) {
+            @mkdir($dstDir, 0775, true);
+        }
+
+        $pdf->Output($dstAbs, 'F');
+    }
+
 
     private function brandLeft(array $sub): string
     {

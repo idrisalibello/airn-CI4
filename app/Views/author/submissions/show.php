@@ -19,31 +19,31 @@
 <?php endif; ?>
 
 <div class="card">
-    <h3 style="margin-top:0;">Payment</h3>
+  <h3 style="margin-top:0;">Payment</h3>
 
-    <?php $ps = (string)($payment_status ?? 'UNPAID'); ?>
+  <?php $ps = (string)($payment_status ?? 'UNPAID'); ?>
 
-    <?php if ($ps === 'PAID'): ?>
-        <div class="pill ok">PAID</div>
-        <div style="margin-top:8px;font-size:13px;color:#666;">
-            Reference: <?= esc((string)($payment['reference'] ?? '')) ?><br>
-            Paid at: <?= esc((string)($payment['paid_at'] ?? '')) ?>
-        </div>
+  <?php if ($ps === 'PAID'): ?>
+    <div class="pill ok">PAID</div>
+    <div style="margin-top:8px;font-size:13px;color:#666;">
+      Reference: <?= esc((string)($payment['reference'] ?? '')) ?><br>
+      Paid at: <?= esc((string)($payment['paid_at'] ?? '')) ?>
+    </div>
 
-    <?php elseif ($ps === 'PENDING'): ?>
-        <div class="pill">PENDING</div>
-        <p>Payment started but not yet confirmed.</p>
-        <a class="btn" href="/author/submissions/<?= (int)$sub['id'] ?>/pay">
-            Continue Payment
-        </a>
+  <?php elseif ($ps === 'PENDING'): ?>
+    <div class="pill">PENDING</div>
+    <p>Payment started but not yet confirmed.</p>
+    <a class="btn" href="/author/submissions/<?= (int)$sub['id'] ?>/pay">
+      Continue Payment
+    </a>
 
-    <?php else: ?>
-        <div class="pill no">UNPAID</div>
-        <p><strong>Warning:</strong> Only PAID submissions will be considered for peer review. Conference submissions without payment will not be processed.</p>
-        <a class="btn" href="/author/submissions/<?= (int)$sub['id'] ?>/pay">
-            Pay Now
-        </a>
-    <?php endif; ?>
+  <?php else: ?>
+    <div class="pill no">UNPAID</div>
+    <p><strong>Warning:</strong> Only PAID submissions will be considered for peer review. Conference submissions without payment will not be processed.</p>
+    <a class="btn" href="/author/submissions/<?= (int)$sub['id'] ?>/pay">
+      Pay Now
+    </a>
+  <?php endif; ?>
 </div>
 
 <div class="card">
@@ -159,6 +159,46 @@
   <?php endif; ?>
 
   <hr style="border:none;border-top:1px solid #eee;margin:14px 0">
+  <div class="card">
+    <h3 style="margin-top:0;">Camera-Ready Guide (Required)</h3>
+    <p class="muted" style="margin-top:6px;">
+      Use this checklist before uploading. Submissions that ignore these rules may be returned for correction.
+    </p>
+
+   <div class="card">
+  <h3 style="margin-top:0;">Camera-Ready Manuscript Guide</h3>
+  <p class="muted" style="color:red">
+    Please ensure your manuscript strictly follows the formatting requirements below before upload.
+    Non-compliant files may delay review or publication.
+  </p>
+
+  <details style="margin-top:10px;">
+    <summary style="cursor:pointer;font-weight:600;">
+      View formatting requirements
+    </summary>
+
+    <div style="margin-top:12px; line-height:1.6;">
+      <ul style="padding-left:18px;">
+        <li><strong>File Format:</strong> DOCX (preferred) or PDF.</li>
+        <li><strong>Paper Size:</strong> A4 (210mm × 297mm).</li>
+        <li><strong>Margins:</strong> 1 inch (2.54 cm) on all sides.</li>
+        <li><strong>Font:</strong> Times New Roman.</li>
+        <li><strong>Font Size:</strong> 12pt (body), 14pt bold (section headings).</li>
+        <li><strong>Line Spacing:</strong> 1.5 spacing.</li>
+        <li><strong>Alignment:</strong> Justified text.</li>
+        <li><strong>Figures & Tables:</strong> Must be clear, numbered, and referenced in text.</li>
+        <li><strong>References:</strong> Follow required style (APA / IEEE / Chicago as applicable).</li>
+        <li><strong>No headers/footers:</strong> Publication metadata will be added by the editor.</li>
+      </ul>
+
+      <div style="margin-top:12px;">
+        <a class="btn" href="/templates/AIRN-Camera-Ready-Template.docx">
+          Download Official Template (DOCX)
+        </a>
+      </div>
+    </div>
+  </details>
+</div>
 
   <h4 style="margin:0 0 10px">Upload new version</h4>
   <form method="post" action="/author/submissions/<?= (int)$sub['id'] ?>/upload" enctype="multipart/form-data">

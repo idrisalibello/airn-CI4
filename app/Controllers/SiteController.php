@@ -8,7 +8,9 @@ use Dompdf\Dompdf;
 class SiteController extends BaseController
 {
     public function home()
-    {
+    {   
+
+        
         return view('site/home', [
             'title' => 'Academic & International Research Network',
         ]);
